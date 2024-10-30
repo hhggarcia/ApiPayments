@@ -1,0 +1,6 @@
+@BncPayments_HostAddress = http://localhost:5232
+
+GET {{BncPayments_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
