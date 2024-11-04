@@ -13,10 +13,15 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.Configure<ApiBncSettings>(builder.Configuration.GetSection("ApiBncSettings"));
-builder.Services.AddSingleton(resolver => resolver.GetRequiredService<IOptions<ApiBncSettings>>().Value);
-builder.Services.AddSingleton<WorkingKeyServices>();
 
+// SINGLETON
+builder.Services.AddSingleton(resolver => resolver.GetRequiredService<IOptions<ApiBncSettings>>().Value);
+
+// SCOPED
+builder.Services.AddScoped<WorkingKeyServices>();
 builder.Services.AddScoped<IBncServices, BncServices>();
+
+// TRANSIENTS
 builder.Services.AddTransient<IHashService, HashServices>();
 builder.Services.AddTransient<IEncryptionServices, EncryptionServices>();
 
@@ -30,7 +35,7 @@ app.UseMiddleware<ExceptionMiddleware>();
 
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
 {
     app.UseSwagger();
     app.UseSwaggerUI();

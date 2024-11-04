@@ -49,7 +49,7 @@ namespace BncPayments.Services
             _encryptServices = encryptService;
             _hashServices = hashServices;
             _workingKeyServices = workingKeyServices;
-            _workingKeyTests = "88e1f1d405a51b0f9a79224857f7e7ce";
+            _workingKeyTests = "36e4b2f24770e9e2d8f106bb6f3dbceb";
         }
 
         /// <summary>
@@ -157,7 +157,7 @@ namespace BncPayments.Services
         {
             string url = "Services/Banks";
             var jsonConvert = JsonConvert.SerializeObject(new { });
-            return await SendRequest(_workingKeyServices.GetWorkingKey() ?? "", jsonConvert, url);
+            return await SendRequest(_workingKeyTests, jsonConvert, url);
         }
 
         public async Task<HttpResponseMessage> Current(Current model)

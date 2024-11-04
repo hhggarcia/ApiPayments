@@ -30,7 +30,7 @@ namespace BncPayments.Controllers
             _apiBncSettings = apiBncSettings;
             _workingKey = workingKey;
             _encryptServices = encryptionServices;
-            _workingKeyTests = "88e1f1d405a51b0f9a79224857f7e7ce";
+            _workingKeyTests = "29aa374b2bdf7f4b9ca432c654933001";
 
         }
 
@@ -401,7 +401,7 @@ namespace BncPayments.Controllers
                     result.Status.Equals("OK"))
                 {
                     /// desencriptar el result.Value
-                    var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                    var decryptResult = _encryptServices.DecryptText(result.Value, _workingKeyTests);
 
                     var logOnResponse = JsonConvert.DeserializeObject<List<Banks>>(decryptResult);
                     return Ok(logOnResponse);
