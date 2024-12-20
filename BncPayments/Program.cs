@@ -16,9 +16,9 @@ builder.Services.Configure<ApiBncSettings>(builder.Configuration.GetSection("Api
 
 // SINGLETON
 builder.Services.AddSingleton(resolver => resolver.GetRequiredService<IOptions<ApiBncSettings>>().Value);
+builder.Services.AddSingleton<WorkingKeyServices>();
 
 // SCOPED
-builder.Services.AddScoped<WorkingKeyServices>();
 builder.Services.AddScoped<IBncServices, BncServices>();
 
 // TRANSIENTS

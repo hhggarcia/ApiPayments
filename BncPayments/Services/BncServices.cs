@@ -10,21 +10,19 @@ namespace BncPayments.Services
     public interface IBncServices
     {
         Task<HttpResponseMessage> Banks();
-        Task<HttpResponseMessage> CreditBeginner(CreditBeginner model);
+        Task<HttpResponseMessage> BcvRates();
         Task<HttpResponseMessage> Current(Current model);
-        Task<HttpResponseMessage> DebitBeginner(DebitBeginner model);
         Task<string> GetExternalDataAsync();
-        Task<HttpResponseMessage> GetStatusTrans(StatusTrans model);
         Task<HttpResponseMessage> History(History model);
         Task<HttpResponseMessage> HistoryByDate(HistoryByDate model);
         Task<HttpResponseMessage> LogOn();
         Task<ModelExample> PostExternalData(ModelExample model);
         Task<HttpResponseMessage> ReverseC2P(ReverseC2P model);
         Task<HttpResponseMessage> ReverseC2PALT(ReverseC2Palt model);
-        Task<HttpResponseMessage> ReverseDebit(ReverseDebit model);
         Task<HttpResponseMessage> Send(Send model);
         Task<HttpResponseMessage> SendC2P(SendC2P model);
         Task<HttpResponseMessage> SendP2P(SendP2P model);
+        Task<HttpResponseMessage> TransactionPos(TransactionsPos model);
         Task<string> UpdateWorkingKey();
         Task<HttpResponseMessage> Validate(Validate model);
         Task<HttpResponseMessage> ValidateExistence(ValidateExistence model);
@@ -49,7 +47,7 @@ namespace BncPayments.Services
             _encryptServices = encryptService;
             _hashServices = hashServices;
             _workingKeyServices = workingKeyServices;
-            _workingKeyTests = "36e4b2f24770e9e2d8f106bb6f3dbceb";
+            _workingKeyTests = "dd8321dc18579eed46015ab3fa518a88";
         }
 
         /// <summary>
@@ -118,6 +116,7 @@ namespace BncPayments.Services
             string url = "MobPayment/SendP2P";
             var jsonConvert = JsonConvert.SerializeObject(model);
             return await SendRequest(_workingKeyServices.GetWorkingKey() ?? "", jsonConvert, url);
+            //return await SendRequest(_workingKeyTests, jsonConvert, url);
         }
 
         /// <summary>
@@ -157,7 +156,8 @@ namespace BncPayments.Services
         {
             string url = "Services/Banks";
             var jsonConvert = JsonConvert.SerializeObject(new { });
-            return await SendRequest(_workingKeyTests, jsonConvert, url);
+            return await SendRequest(_workingKeyServices.GetWorkingKey() ?? "", jsonConvert, url);
+            //return await SendRequest(_workingKeyTests, jsonConvert, url);
         }
 
         public async Task<HttpResponseMessage> Current(Current model)
@@ -203,34 +203,20 @@ namespace BncPayments.Services
             return await SendRequest(_workingKeyServices.GetWorkingKey() ?? "", jsonConvert, url);
         }
 
-        public async Task<HttpResponseMessage> DebitBeginner(DebitBeginner model)
+        public async Task<HttpResponseMessage> TransactionPos(TransactionsPos model)
         {
-            string url = "SIMF/Debit_Beginner";
+            string url = "Position/TransactionPOS";
             var jsonConvert = JsonConvert.SerializeObject(model);
             return await SendRequest(_workingKeyServices.GetWorkingKey() ?? "", jsonConvert, url);
         }
 
-        public async Task<HttpResponseMessage> CreditBeginner(CreditBeginner model)
+        public async Task<HttpResponseMessage> BcvRates()
         {
-            string url = "SIMF/CreditBeginner";
-            var jsonConvert = JsonConvert.SerializeObject(model);
+            string url = "Services/BCVRates";
+            var jsonConvert = JsonConvert.SerializeObject(new { });
             return await SendRequest(_workingKeyServices.GetWorkingKey() ?? "", jsonConvert, url);
         }
-
-        public async Task<HttpResponseMessage> ReverseDebit(ReverseDebit model)
-        {
-            string url = "SIMF/ReverseDebit";
-            var jsonConvert = JsonConvert.SerializeObject(model);
-            return await SendRequest(_workingKeyServices.GetWorkingKey() ?? "", jsonConvert, url);
-        }
-
-        public async Task<HttpResponseMessage> GetStatusTrans(StatusTrans model)
-        {
-            string url = "SIMF/GetStatusTrans";
-            var jsonConvert = JsonConvert.SerializeObject(model);
-            return await SendRequest(_workingKeyServices.GetWorkingKey() ?? "", jsonConvert, url);
-        }
-
+        
         public async Task<string> UpdateWorkingKey()
         {
             try
@@ -264,7 +250,7 @@ namespace BncPayments.Services
             }
             catch (Exception ex)
             {
-                return "KO";
+                return "KO"+ex.Message;
             }
 
         }

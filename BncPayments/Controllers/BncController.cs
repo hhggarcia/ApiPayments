@@ -2,6 +2,7 @@
 using ClassLibrary.BncModels;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
+using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Net;
 using System.Reflection;
 using static System.Runtime.InteropServices.JavaScript.JSType;
@@ -30,7 +31,7 @@ namespace BncPayments.Controllers
             _apiBncSettings = apiBncSettings;
             _workingKey = workingKey;
             _encryptServices = encryptionServices;
-            _workingKeyTests = "29aa374b2bdf7f4b9ca432c654933001";
+            _workingKeyTests = "dd8321dc18579eed46015ab3fa518a88";
 
         }
 
@@ -48,19 +49,19 @@ namespace BncPayments.Controllers
         //    return Ok(rest);
         //}
 
-        [HttpGet("Encriptar")]
-        public IActionResult Encriptar(string textoEncriptar)
-        {
-            var encriptar = _encryptServices.EncryptBnc(textoEncriptar, _apiBncSettings.MasterKey);
-            return Ok(encriptar);
-        }
+        //[HttpGet("Encriptar")]
+        //public IActionResult Encriptar(string textoEncriptar)
+        //{
+        //    var encriptar = _encryptServices.EncryptBnc(textoEncriptar, _apiBncSettings.MasterKey);
+        //    return Ok(encriptar);
+        //}
 
-        [HttpGet("Desencriptar")]
-        public IActionResult Desencriptar(string textoDesencriptar)
-        {
-            var desencriptar = _encryptServices.DecryptText(textoDesencriptar, _apiBncSettings.MasterKey);
-            return Ok(desencriptar);
-        }
+        //[HttpGet("Desencriptar")]
+        //public IActionResult Desencriptar(string textoDesencriptar)
+        //{
+        //    var desencriptar = _encryptServices.DecryptText(textoDesencriptar, _apiBncSettings.MasterKey);
+        //    return Ok(desencriptar);
+        //}
 
         [HttpPost("LogOn")]
         public async Task<ActionResult> LogOn()
@@ -69,41 +70,50 @@ namespace BncPayments.Controllers
             {
                 var response = await _bncServices.LogOn();
                 var jsonResponse = await response.Content.ReadAsStringAsync();
-                var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
 
-                if (response.IsSuccessStatusCode &&
-                    result != null &&
-                    result.Status.Equals("OK"))
+                if (response.IsSuccessStatusCode)
                 {
-                    /// desencriptar el result.Value
-                    var decryptResult = _encryptServices.DecryptText(result.Value, _apiBncSettings.MasterKey);
+                    var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
 
-                    var logOnResponse = JsonConvert.DeserializeObject<LogOnResponse>(decryptResult);
-
-                    if (logOnResponse != null)
+                    if (result != null &&
+                        result.Status.Equals("OK"))
                     {
-                        _workingKey.SetWorkingKey(logOnResponse.WorkingKey);
+                        /// desencriptar el result.Value
+                        var decryptResult = _encryptServices.DecryptText(result.Value, _apiBncSettings.MasterKey);
+
+                        var logOnResponse = JsonConvert.DeserializeObject<LogOnResponse>(decryptResult);
+
+                        if (logOnResponse != null)
+                        {
+                            _workingKey.SetWorkingKey(logOnResponse.WorkingKey);
+                        }
+                        _logger.LogInformation("Returning Ok response.");
+                        return Ok(logOnResponse);
                     }
-                    _logger.LogInformation("Returning Ok response.");
-                    return Ok(logOnResponse);
+                    return Ok(jsonResponse);
                 }
-                else if (result != null &&
-                    result.Status.Equals("KO"))
+                else if (jsonResponse.Contains("KO"))
                 {
-                    // Manejo específico de la excepción
-                    _logger.LogError($"Working key is broked: {result.Message}");
+                    var resultKo = JsonConvert.DeserializeObject<Response>(jsonResponse);
 
-                    return StatusCode((int)HttpStatusCode.InternalServerError, new
+                    if (resultKo != null)
                     {
-                        result.Status,
-                        result.Message,
-                        result.Value,
-                        result.Validation
-                    });
+                        // Manejo específico de la excepción
+                        _logger.LogError($"Working key is broked: {resultKo.Message}");
+
+                        return StatusCode((int)HttpStatusCode.InternalServerError, new
+                        {
+                            resultKo.Status,
+                            resultKo.Message,
+                            resultKo.Value,
+                            resultKo.Validation
+                        });
+                    }
+                    return BadRequest(jsonResponse);
                 }
                 else
                 {
-                    return BadRequest(result);
+                    return BadRequest(jsonResponse);
                 }
 
             }
@@ -124,40 +134,50 @@ namespace BncPayments.Controllers
 
                 var response = await _bncServices.SendP2P(model);
                 var jsonResponse = await response.Content.ReadAsStringAsync();
-                var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
 
-                /// TO DO: VALIDAR EL POSIBLE MENSAJE 'RWK' 
-                /// Para validar la validez del workingKey
-                /// si existe, llamar a LogOn nuevamente
-
-                if (result != null &&
-                    result.Message.Contains("RWK"))
+                if (response.IsSuccessStatusCode)
                 {
-                    await ManageRWK();
+                    var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
+
+                    if (result != null &&
+                        result.Status.Equals("OK"))
+                    {
+                        /// desencriptar el result.Value
+                        var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                        //var decryptResult = _encryptServices.DecryptText(result.Value, _workingKeyTests);
+
+                        var logOnResponse = JsonConvert.DeserializeObject<SendP2PResponse>(decryptResult);
+
+                        return Ok(logOnResponse);
+                    }
+                    return Ok(jsonResponse);
+
                 }
-
-                if (response.IsSuccessStatusCode &&
-                    result != null &&
-                    result.Status.Equals("OK"))
+                else if (jsonResponse.Contains("RWK"))
                 {
-                    /// desencriptar el result.Value
-                    var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                    return await ManageRWK();
+                }
+                else if (jsonResponse.Contains("KO"))
+                {
+                    var resultKo = JsonConvert.DeserializeObject<Response>(jsonResponse);
 
-                    var logOnResponse = JsonConvert.DeserializeObject<SendP2PResponse>(decryptResult);
-
-                    return Ok(logOnResponse);
+                    if (resultKo != null)
+                    {
+                        // Manejo del error
+                        _logger.LogError($"Error in LogOn: {resultKo.Message}");
+                        return StatusCode((int)HttpStatusCode.InternalServerError, new
+                        {
+                            resultKo.Status,
+                            resultKo.Message,
+                            resultKo.Validation,
+                            resultKo.Value
+                        });
+                    }
+                    return BadRequest(jsonResponse);
                 }
                 else
                 {
-                    // Manejo del error
-                    _logger.LogError($"Error in LogOn: {result.Message}");
-                    return StatusCode((int)HttpStatusCode.InternalServerError, new
-                    {
-                        result.Status,
-                        result.Message,
-                        result.Validation,
-                        result.Value
-                    });
+                    return BadRequest(jsonResponse);
                 }
             }
             catch (Exception ex)
@@ -177,39 +197,50 @@ namespace BncPayments.Controllers
 
                 var response = await _bncServices.SendC2P(model);
                 var jsonResponse = await response.Content.ReadAsStringAsync();
-                var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
 
-                /// TO DO: VALIDAR EL POSIBLE MENSAJE 'RWK' 
-                /// Para validar la validez del workingKey
-                /// si existe, llamar a LogOn nuevamente
-
-                if (result != null &&
-                    result.Message.Contains("RWK"))
+                if (response.IsSuccessStatusCode)
                 {
-                    await ManageRWK();
+                    var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
+
+                    if (result != null &&
+                        result.Status.Equals("OK"))
+                    {
+                        /// desencriptar el result.Value
+                        var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                        //var decryptResult = _encryptServices.DecryptText(result.Value, _workingKeyTests);
+
+                        var logOnResponse = JsonConvert.DeserializeObject<SendC2PResponse>(decryptResult);
+
+                        return Ok(logOnResponse);
+                    }
+                    return Ok(jsonResponse);
+
                 }
-
-                if (response.IsSuccessStatusCode &&
-                    result != null &&
-                    result.Status.Equals("OK"))
+                else if (jsonResponse.Contains("RWK"))
                 {
-                    /// desencriptar el result.Value
-                    var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                    return await ManageRWK();
+                }
+                else if (jsonResponse.Contains("KO"))
+                {
+                    var resultKo = JsonConvert.DeserializeObject<Response>(jsonResponse);
 
-                    var logOnResponse = JsonConvert.DeserializeObject<SendC2PResponse>(decryptResult);
-                    return Ok(logOnResponse);
+                    if (resultKo != null)
+                    {
+                        // Manejo del error
+                        _logger.LogError($"Error in LogOn: {resultKo.Message}");
+                        return StatusCode((int)HttpStatusCode.InternalServerError, new
+                        {
+                            resultKo.Status,
+                            resultKo.Message,
+                            resultKo.Validation,
+                            resultKo.Value
+                        });
+                    }
+                    return BadRequest(jsonResponse);
                 }
                 else
                 {
-                    // Manejo del error
-                    _logger.LogError($"Error in LogOn: {result.Message}");
-                    return StatusCode((int)HttpStatusCode.InternalServerError, new
-                    {
-                        result.Status,
-                        result.Message,
-                        result.Validation,
-                        result.Value
-                    });
+                    return BadRequest(jsonResponse);
                 }
             }
             catch (Exception ex)
@@ -229,39 +260,50 @@ namespace BncPayments.Controllers
 
                 var response = await _bncServices.ReverseC2P(model);
                 var jsonResponse = await response.Content.ReadAsStringAsync();
-                var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
 
-                /// TO DO: VALIDAR EL POSIBLE MENSAJE 'RWK' 
-                /// Para validar la validez del workingKey
-                /// si existe, llamar a LogOn nuevamente
-
-                if (result != null &&
-                    result.Message.Contains("RWK"))
+                if (response.IsSuccessStatusCode)
                 {
-                    await ManageRWK();
+                    var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
+
+                    if (result != null &&
+                        result.Status.Equals("OK"))
+                    {
+                        /// desencriptar el result.Value
+                        var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                        //var decryptResult = _encryptServices.DecryptText(result.Value, _workingKeyTests);
+
+                        var logOnResponse = JsonConvert.DeserializeObject<ReverseC2PResponse>(decryptResult);
+
+                        return Ok(logOnResponse);
+                    }
+                    return Ok(jsonResponse);
+
                 }
-
-                if (response.IsSuccessStatusCode &&
-                    result != null &&
-                    result.Status.Equals("OK"))
+                else if (jsonResponse.Contains("RWK"))
                 {
-                    /// desencriptar el result.Value
-                    var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                    return await ManageRWK();
+                }
+                else if (jsonResponse.Contains("KO"))
+                {
+                    var resultKo = JsonConvert.DeserializeObject<Response>(jsonResponse);
 
-                    var logOnResponse = JsonConvert.DeserializeObject<ReverseC2PResponse>(decryptResult);
-                    return Ok(logOnResponse);
+                    if (resultKo != null)
+                    {
+                        // Manejo del error
+                        _logger.LogError($"Error in LogOn: {resultKo.Message}");
+                        return StatusCode((int)HttpStatusCode.InternalServerError, new
+                        {
+                            resultKo.Status,
+                            resultKo.Message,
+                            resultKo.Validation,
+                            resultKo.Value
+                        });
+                    }
+                    return BadRequest(jsonResponse);
                 }
                 else
                 {
-                    // Manejo del error
-                    _logger.LogError($"Error in LogOn: {result.Message}");
-                    return StatusCode((int)HttpStatusCode.InternalServerError, new
-                    {
-                        result.Status,
-                        result.Message,
-                        result.Validation,
-                        result.Value
-                    });
+                    return BadRequest(jsonResponse);
                 }
             }
             catch (Exception ex)
@@ -281,39 +323,50 @@ namespace BncPayments.Controllers
 
                 var response = await _bncServices.ReverseC2PALT(model);
                 var jsonResponse = await response.Content.ReadAsStringAsync();
-                var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
 
-                /// TO DO: VALIDAR EL POSIBLE MENSAJE 'RWK' 
-                /// Para validar la validez del workingKey
-                /// si existe, llamar a LogOn nuevamente
-
-                if (result != null &&
-                    result.Message.Contains("RWK"))
+                if (response.IsSuccessStatusCode)
                 {
-                    await ManageRWK();
+                    var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
+
+                    if (result != null &&
+                        result.Status.Equals("OK"))
+                    {
+                        /// desencriptar el result.Value
+                        var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                        //var decryptResult = _encryptServices.DecryptText(result.Value, _workingKeyTests);
+
+                        var logOnResponse = JsonConvert.DeserializeObject<ReverseC2PaltResponse>(decryptResult);
+
+                        return Ok(logOnResponse);
+                    }
+                    return Ok(jsonResponse);
+
                 }
-
-                if (response.IsSuccessStatusCode &&
-                    result != null &&
-                    result.Status.Equals("OK"))
+                else if (jsonResponse.Contains("RWK"))
                 {
-                    /// desencriptar el result.Value
-                    var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                    return await ManageRWK();
+                }
+                else if (jsonResponse.Contains("KO"))
+                {
+                    var resultKo = JsonConvert.DeserializeObject<Response>(jsonResponse);
 
-                    var logOnResponse = JsonConvert.DeserializeObject<ReverseC2PaltResponse>(decryptResult);
-                    return Ok(logOnResponse);
+                    if (resultKo != null)
+                    {
+                        // Manejo del error
+                        _logger.LogError($"Error in LogOn: {resultKo.Message}");
+                        return StatusCode((int)HttpStatusCode.InternalServerError, new
+                        {
+                            resultKo.Status,
+                            resultKo.Message,
+                            resultKo.Validation,
+                            resultKo.Value
+                        });
+                    }
+                    return BadRequest(jsonResponse);
                 }
                 else
                 {
-                    // Manejo del error
-                    _logger.LogError($"Error in LogOn: {result.Message}");
-                    return StatusCode((int)HttpStatusCode.InternalServerError, new
-                    {
-                        result.Status,
-                        result.Message,
-                        result.Validation,
-                        result.Value
-                    });
+                    return BadRequest(jsonResponse);
                 }
             }
             catch (Exception ex)
@@ -332,40 +385,50 @@ namespace BncPayments.Controllers
 
                 var response = await _bncServices.Send(model);
                 var jsonResponse = await response.Content.ReadAsStringAsync();
-                var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
 
-                /// TO DO: VALIDAR EL POSIBLE MENSAJE 'RWK' 
-                /// Para validar la validez del workingKey
-                /// si existe, llamar a LogOn nuevamente
-
-                if (result != null &&
-                    result.Message.Contains("RWK"))
+                if (response.IsSuccessStatusCode)
                 {
-                    await ManageRWK();
+                    var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
+
+                    if (result != null &&
+                        result.Status.Equals("OK"))
+                    {
+                        /// desencriptar el result.Value
+                        var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                        //var decryptResult = _encryptServices.DecryptText(result.Value, _workingKeyTests);
+
+                        var logOnResponse = JsonConvert.DeserializeObject<SendResponse>(decryptResult);
+
+                        return Ok(logOnResponse);
+                    }
+                    return Ok(jsonResponse);
+
                 }
-
-                if (response.IsSuccessStatusCode &&
-                    result != null &&
-                    result.Status.Equals("OK"))
+                else if (jsonResponse.Contains("RWK"))
                 {
+                    return await ManageRWK();
+                }
+                else if (jsonResponse.Contains("KO"))
+                {
+                    var resultKo = JsonConvert.DeserializeObject<Response>(jsonResponse);
 
-                    /// desencriptar el result.Value
-                    var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
-
-                    var logOnResponse = JsonConvert.DeserializeObject<SendResponse>(decryptResult);
-                    return Ok(logOnResponse);
+                    if (resultKo != null)
+                    {
+                        // Manejo del error
+                        _logger.LogError($"Error in LogOn: {resultKo.Message}");
+                        return StatusCode((int)HttpStatusCode.InternalServerError, new
+                        {
+                            resultKo.Status,
+                            resultKo.Message,
+                            resultKo.Validation,
+                            resultKo.Value
+                        });
+                    }
+                    return BadRequest(jsonResponse);
                 }
                 else
                 {
-                    // Manejo del error
-                    _logger.LogError($"Error in LogOn: {result.Message}");
-                    return StatusCode((int)HttpStatusCode.InternalServerError, new
-                    {
-                        result.Status,
-                        result.Message,
-                        result.Validation,
-                        result.Value
-                    });
+                    return BadRequest(jsonResponse);
                 }
             }
             catch (Exception ex)
@@ -384,39 +447,50 @@ namespace BncPayments.Controllers
 
                 var response = await _bncServices.Banks();
                 var jsonResponse = await response.Content.ReadAsStringAsync();
-                var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
 
-                /// TO DO: VALIDAR EL POSIBLE MENSAJE 'RWK' 
-                /// Para validar la validez del workingKey
-                /// si existe, llamar a LogOn nuevamente
-
-                if (result != null &&
-                    result.Message.Contains("RWK"))
+                if (response.IsSuccessStatusCode)
                 {
-                    await ManageRWK();
+                    var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
+
+                    if (result != null &&
+                        result.Status.Equals("OK"))
+                    {
+                        /// desencriptar el result.Value
+                        var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                        //var decryptResult = _encryptServices.DecryptText(result.Value, _workingKeyTests);
+
+                        var logOnResponse = JsonConvert.DeserializeObject<List<Banks>>(decryptResult);
+
+                        return Ok(logOnResponse);
+                    }
+                    return Ok(jsonResponse);
+
                 }
-
-                if (response.IsSuccessStatusCode &&
-                    result != null &&
-                    result.Status.Equals("OK"))
+                else if (jsonResponse.Contains("RWK"))
                 {
-                    /// desencriptar el result.Value
-                    var decryptResult = _encryptServices.DecryptText(result.Value, _workingKeyTests);
+                    return await ManageRWK();
+                }
+                else if (jsonResponse.Contains("KO"))
+                {
+                    var resultKo = JsonConvert.DeserializeObject<Response>(jsonResponse);
 
-                    var logOnResponse = JsonConvert.DeserializeObject<List<Banks>>(decryptResult);
-                    return Ok(logOnResponse);
+                    if (resultKo != null)
+                    {
+                        // Manejo del error
+                        _logger.LogError($"Error in LogOn: {resultKo.Message}");
+                        return StatusCode((int)HttpStatusCode.InternalServerError, new
+                        {
+                            resultKo.Status,
+                            resultKo.Message,
+                            resultKo.Validation,
+                            resultKo.Value
+                        });
+                    }
+                    return BadRequest(jsonResponse);
                 }
                 else
                 {
-                    // Manejo del error
-                    _logger.LogError($"Error in LogOn: {result.Message}");
-                    return StatusCode((int)HttpStatusCode.InternalServerError, new
-                    {
-                        result.Status,
-                        result.Message,
-                        result.Validation,
-                        result.Value
-                    });
+                    return BadRequest(jsonResponse);
                 }
             }
             catch (Exception ex)
@@ -436,40 +510,50 @@ namespace BncPayments.Controllers
 
                 var response = await _bncServices.Current(model);
                 var jsonResponse = await response.Content.ReadAsStringAsync();
-                var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
 
-                /// TO DO: VALIDAR EL POSIBLE MENSAJE 'RWK' 
-                /// Para validar la validez del workingKey
-                /// si existe, llamar a LogOn nuevamente
-
-                if (result != null &&
-                    result.Message.Contains("RWK"))
+                if (response.IsSuccessStatusCode)
                 {
-                    await ManageRWK();
+                    var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
+
+                    if (result != null &&
+                        result.Status.Equals("OK"))
+                    {
+                        /// desencriptar el result.Value
+                        var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                        //var decryptResult = _encryptServices.DecryptText(result.Value, _workingKeyTests);
+
+                        var logOnResponse = JsonConvert.DeserializeObject<Dictionary<string, CurrentItem>>(decryptResult);
+
+                        return Ok(logOnResponse);
+                    }
+                    return Ok(jsonResponse);
+
                 }
-
-                if (response.IsSuccessStatusCode &&
-                    result != null &&
-                    result.Status.Equals("OK"))
+                else if (jsonResponse.Contains("RWK"))
                 {
+                    return await ManageRWK();
+                }
+                else if (jsonResponse.Contains("KO"))
+                {
+                    var resultKo = JsonConvert.DeserializeObject<Response>(jsonResponse);
 
-                    /// desencriptar el result.Value
-                    var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
-
-                    var logOnResponse = JsonConvert.DeserializeObject<List<CurrentItem>>(decryptResult);
-                    return Ok(logOnResponse);
+                    if (resultKo != null)
+                    {
+                        // Manejo del error
+                        _logger.LogError($"Error in LogOn: {resultKo.Message}");
+                        return StatusCode((int)HttpStatusCode.InternalServerError, new
+                        {
+                            resultKo.Status,
+                            resultKo.Message,
+                            resultKo.Validation,
+                            resultKo.Value
+                        });
+                    }
+                    return BadRequest(jsonResponse);
                 }
                 else
                 {
-                    // Manejo del error
-                    _logger.LogError($"Error in LogOn: {result.Message}");
-                    return StatusCode((int)HttpStatusCode.InternalServerError, new
-                    {
-                        result.Status,
-                        result.Message,
-                        result.Validation,
-                        result.Value
-                    });
+                    return BadRequest(jsonResponse);
                 }
             }
             catch (Exception ex)
@@ -489,40 +573,50 @@ namespace BncPayments.Controllers
 
                 var response = await _bncServices.History(model);
                 var jsonResponse = await response.Content.ReadAsStringAsync();
-                var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
 
-                /// TO DO: VALIDAR EL POSIBLE MENSAJE 'RWK' 
-                /// Para validar la validez del workingKey
-                /// si existe, llamar a LogOn nuevamente
-
-                if (result != null &&
-                    result.Message.Contains("RWK"))
+                if (response.IsSuccessStatusCode)
                 {
-                    await ManageRWK();
+                    var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
+
+                    if (result != null &&
+                        result.Status.Equals("OK"))
+                    {
+                        /// desencriptar el result.Value
+                        var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                        //var decryptResult = _encryptServices.DecryptText(result.Value, _workingKeyTests);
+
+                        var logOnResponse = JsonConvert.DeserializeObject<Dictionary<HistoryKey, HistoryValue>>(decryptResult);
+
+                        return Ok(logOnResponse);
+                    }
+                    return Ok(jsonResponse);
+
                 }
-
-                if (response.IsSuccessStatusCode &&
-                    result != null &&
-                    result.Status.Equals("OK"))
+                else if (jsonResponse.Contains("RWK"))
                 {
+                    return await ManageRWK();
+                }
+                else if (jsonResponse.Contains("KO"))
+                {
+                    var resultKo = JsonConvert.DeserializeObject<Response>(jsonResponse);
 
-                    /// desencriptar el result.Value
-                    var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
-
-                    var logOnResponse = JsonConvert.DeserializeObject<Dictionary<HistoryKey, HistoryValue>>(decryptResult);
-                    return Ok(logOnResponse);
+                    if (resultKo != null)
+                    {
+                        // Manejo del error
+                        _logger.LogError($"Error in LogOn: {resultKo.Message}");
+                        return StatusCode((int)HttpStatusCode.InternalServerError, new
+                        {
+                            resultKo.Status,
+                            resultKo.Message,
+                            resultKo.Validation,
+                            resultKo.Value
+                        });
+                    }
+                    return BadRequest(jsonResponse);
                 }
                 else
                 {
-                    // Manejo del error
-                    _logger.LogError($"Error in LogOn: {result.Message}");
-                    return StatusCode((int)HttpStatusCode.InternalServerError, new
-                    {
-                        result.Status,
-                        result.Message,
-                        result.Validation,
-                        result.Value
-                    });
+                    return BadRequest(jsonResponse);
                 }
             }
             catch (Exception ex)
@@ -543,39 +637,50 @@ namespace BncPayments.Controllers
 
                 var response = await _bncServices.HistoryByDate(model);
                 var jsonResponse = await response.Content.ReadAsStringAsync();
-                var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
 
-                /// TO DO: VALIDAR EL POSIBLE MENSAJE 'RWK' 
-                /// Para validar la validez del workingKey
-                /// si existe, llamar a LogOn nuevamente
-
-                if (result != null &&
-                    result.Message.Contains("RWK"))
+                if (response.IsSuccessStatusCode)
                 {
-                    await ManageRWK();
+                    var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
+
+                    if (result != null &&
+                        result.Status.Equals("OK"))
+                    {
+                        /// desencriptar el result.Value
+                        var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                        //var decryptResult = _encryptServices.DecryptText(result.Value, _workingKeyTests);
+
+                        var logOnResponse = JsonConvert.DeserializeObject<Dictionary<string, List<HistoryByDateValue>>>(decryptResult);
+
+                        return Ok(logOnResponse);
+                    }
+                    return Ok(jsonResponse);
+
                 }
-
-                if (response.IsSuccessStatusCode &&
-                    result != null &&
-                    result.Status.Equals("OK"))
+                else if (jsonResponse.Contains("RWK"))
                 {
+                    return await ManageRWK();
+                }
+                else if (jsonResponse.Contains("KO"))
+                {
+                    var resultKo = JsonConvert.DeserializeObject<Response>(jsonResponse);
 
-                    /// desencriptar el result.Value
-                    var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
-                    var logOnResponse = JsonConvert.DeserializeObject<Dictionary<string, List<HistoryByDateValue>>>(decryptResult);
-                    return Ok(logOnResponse);
+                    if (resultKo != null)
+                    {
+                        // Manejo del error
+                        _logger.LogError($"Error in LogOn: {resultKo.Message}");
+                        return StatusCode((int)HttpStatusCode.InternalServerError, new
+                        {
+                            resultKo.Status,
+                            resultKo.Message,
+                            resultKo.Validation,
+                            resultKo.Value
+                        });
+                    }
+                    return BadRequest(jsonResponse);
                 }
                 else
                 {
-                    // Manejo del error
-                    _logger.LogError($"Error in LogOn: {result.Message}");
-                    return StatusCode((int)HttpStatusCode.InternalServerError, new
-                    {
-                        result.Status,
-                        result.Message,
-                        result.Validation,
-                        result.Value
-                    });
+                    return BadRequest(jsonResponse);
                 }
             }
             catch (Exception ex)
@@ -595,38 +700,50 @@ namespace BncPayments.Controllers
 
                 var response = await _bncServices.Validate(model);
                 var jsonResponse = await response.Content.ReadAsStringAsync();
-                var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
 
-                /// TO DO: VALIDAR EL POSIBLE MENSAJE 'RWK' 
-                /// Para validar la validez del workingKey
-                /// si existe, llamar a LogOn nuevamente
-
-                if (result != null &&
-                    result.Message.Contains("RWK"))
+                if (response.IsSuccessStatusCode)
                 {
-                    await ManageRWK();
+                    var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
+
+                    if (result != null &&
+                        result.Status.Equals("OK"))
+                    {
+                        /// desencriptar el result.Value
+                        var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                        //var decryptResult = _encryptServices.DecryptText(result.Value, _workingKeyTests);
+
+                        var logOnResponse = JsonConvert.DeserializeObject<ValidateResponse>(decryptResult);
+
+                        return Ok(logOnResponse);
+                    }
+                    return Ok(jsonResponse);
+
                 }
-
-                if (response.IsSuccessStatusCode &&
-                    result != null &&
-                    result.Status.Equals("OK"))
+                else if (jsonResponse.Contains("RWK"))
                 {
-                    /// desencriptar el result.Value
-                    var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
-                    var logOnResponse = JsonConvert.DeserializeObject<ValidateResponse>(decryptResult);
-                    return Ok(logOnResponse);
+                    return await ManageRWK();
+                }
+                else if (jsonResponse.Contains("KO"))
+                {
+                    var resultKo = JsonConvert.DeserializeObject<Response>(jsonResponse);
+
+                    if (resultKo != null)
+                    {
+                        // Manejo del error
+                        _logger.LogError($"Error in LogOn: {resultKo.Message}");
+                        return StatusCode((int)HttpStatusCode.InternalServerError, new
+                        {
+                            resultKo.Status,
+                            resultKo.Message,
+                            resultKo.Validation,
+                            resultKo.Value
+                        });
+                    }
+                    return BadRequest(jsonResponse);
                 }
                 else
                 {
-                    // Manejo del error
-                    _logger.LogError($"Error in LogOn: {result.Message}");
-                    return StatusCode((int)HttpStatusCode.InternalServerError, new
-                    {
-                        result.Status,
-                        result.Message,
-                        result.Validation,
-                        result.Value
-                    });
+                    return BadRequest(jsonResponse);
                 }
             }
             catch (Exception ex)
@@ -646,38 +763,50 @@ namespace BncPayments.Controllers
 
                 var response = await _bncServices.ValidateExistence(model);
                 var jsonResponse = await response.Content.ReadAsStringAsync();
-                var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
 
-                /// TO DO: VALIDAR EL POSIBLE MENSAJE 'RWK' 
-                /// Para validar la validez del workingKey
-                /// si existe, llamar a LogOn nuevamente
-
-                if (result != null &&
-                    result.Message.Contains("RWK"))
+                if (response.IsSuccessStatusCode)
                 {
-                    await ManageRWK();
+                    var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
+
+                    if (result != null &&
+                        result.Status.Equals("OK"))
+                    {
+                        /// desencriptar el result.Value
+                        var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                        //var decryptResult = _encryptServices.DecryptText(result.Value, _workingKeyTests);
+
+                        var logOnResponse = JsonConvert.DeserializeObject<ValidateExistenceResponse>(decryptResult);
+
+                        return Ok(logOnResponse);
+                    }
+                    return Ok(jsonResponse);
+
                 }
-
-                if (response.IsSuccessStatusCode &&
-                    result != null &&
-                    result.Status.Equals("OK"))
+                else if (jsonResponse.Contains("RWK"))
                 {
-                    /// desencriptar el result.Value
-                    var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
-                    var logOnResponse = JsonConvert.DeserializeObject<ValidateExistenceResponse>(decryptResult);
-                    return Ok(logOnResponse);
+                    return await ManageRWK();
+                }
+                else if (jsonResponse.Contains("KO"))
+                {
+                    var resultKo = JsonConvert.DeserializeObject<Response>(jsonResponse);
+
+                    if (resultKo != null)
+                    {
+                        // Manejo del error
+                        _logger.LogError($"Error in LogOn: {resultKo.Message}");
+                        return StatusCode((int)HttpStatusCode.InternalServerError, new
+                        {
+                            resultKo.Status,
+                            resultKo.Message,
+                            resultKo.Validation,
+                            resultKo.Value
+                        });
+                    }
+                    return BadRequest(jsonResponse);
                 }
                 else
                 {
-                    // Manejo del error
-                    _logger.LogError($"Error in LogOn: {result.Message}");
-                    return StatusCode((int)HttpStatusCode.InternalServerError, new
-                    {
-                        result.Status,
-                        result.Message,
-                        result.Validation,
-                        result.Value
-                    });
+                    return BadRequest(jsonResponse);
                 }
             }
             catch (Exception ex)
@@ -697,38 +826,50 @@ namespace BncPayments.Controllers
 
                 var response = await _bncServices.ValidateP2P(model);
                 var jsonResponse = await response.Content.ReadAsStringAsync();
-                var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
 
-                /// TO DO: VALIDAR EL POSIBLE MENSAJE 'RWK' 
-                /// Para validar la validez del workingKey
-                /// si existe, llamar a LogOn nuevamente
-
-                if (result != null &&
-                    result.Message.Contains("RWK"))
+                if (response.IsSuccessStatusCode)
                 {
-                    await ManageRWK();
+                    var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
+
+                    if (result != null &&
+                        result.Status.Equals("OK"))
+                    {
+                        /// desencriptar el result.Value
+                        var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                        //var decryptResult = _encryptServices.DecryptText(result.Value, _workingKeyTests);
+
+                        var logOnResponse = JsonConvert.DeserializeObject<ValidateP2PResponse>(decryptResult);
+
+                        return Ok(logOnResponse);
+                    }
+                    return Ok(jsonResponse);
+
                 }
-
-                if (response.IsSuccessStatusCode &&
-                    result != null &&
-                    result.Status.Equals("OK"))
+                else if (jsonResponse.Contains("RWK"))
                 {
-                    /// desencriptar el result.Value
-                    var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
-                    var logOnResponse = JsonConvert.DeserializeObject<ValidateP2P>(decryptResult);
-                    return Ok(logOnResponse);
+                    return await ManageRWK();
+                }
+                else if (jsonResponse.Contains("KO"))
+                {
+                    var resultKo = JsonConvert.DeserializeObject<Response>(jsonResponse);
+
+                    if (resultKo != null)
+                    {
+                        // Manejo del error
+                        _logger.LogError($"Error in LogOn: {resultKo.Message}");
+                        return StatusCode((int)HttpStatusCode.InternalServerError, new
+                        {
+                            resultKo.Status,
+                            resultKo.Message,
+                            resultKo.Validation,
+                            resultKo.Value
+                        });
+                    }
+                    return BadRequest(jsonResponse);
                 }
                 else
                 {
-                    // Manejo del error
-                    _logger.LogError($"Error in LogOn: {result.Message}");
-                    return StatusCode((int)HttpStatusCode.InternalServerError, new
-                    {
-                        result.Status,
-                        result.Message,
-                        result.Validation,
-                        result.Value
-                    });
+                    return BadRequest(jsonResponse);
                 }
             }
             catch (Exception ex)
@@ -739,47 +880,59 @@ namespace BncPayments.Controllers
             }
         }
 
-        [HttpPost("DebitBeginner")]
-        public async Task<ActionResult> DebitBeginner(DebitBeginner model)
+        [HttpPost("TransactionPos")]
+        public async Task<ActionResult> TransactionPos(TransactionsPos model)
         {
             try
             {
                 // TO DO: Verificar parametros del modelo
 
-                var response = await _bncServices.DebitBeginner(model);
+                var response = await _bncServices.TransactionPos(model);
                 var jsonResponse = await response.Content.ReadAsStringAsync();
-                var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
 
-                /// TO DO: VALIDAR EL POSIBLE MENSAJE 'RWK' 
-                /// Para validar la validez del workingKey
-                /// si existe, llamar a LogOn nuevamente
-
-                if (result != null &&
-                    result.Message.Contains("RWK"))
+                if (response.IsSuccessStatusCode)
                 {
-                    await ManageRWK();
+                    var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
+
+                    if (result != null &&
+                        result.Status.Equals("OK"))
+                    {
+                        /// desencriptar el result.Value
+                        var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                        //var decryptResult = _encryptServices.DecryptText(result.Value, _workingKeyTests);
+
+                        var logOnResponse = JsonConvert.DeserializeObject<List<TransactionPosResponse>>(decryptResult);
+
+                        return Ok(logOnResponse);
+                    }
+                    return Ok(jsonResponse);
+
                 }
-
-                if (response.IsSuccessStatusCode &&
-                    result != null &&
-                    result.Status.Equals("OK"))
+                else if (jsonResponse.Contains("RWK"))
                 {
-                    /// desencriptar el result.Value
-                    var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
-                    var logOnResponse = JsonConvert.DeserializeObject<DebitBeginnerResonse>(decryptResult);
-                    return Ok(logOnResponse);
+                    return await ManageRWK();
+                }
+                else if (jsonResponse.Contains("KO"))
+                {
+                    var resultKo = JsonConvert.DeserializeObject<Response>(jsonResponse);
+
+                    if (resultKo != null)
+                    {
+                        // Manejo del error
+                        _logger.LogError($"Error in LogOn: {resultKo.Message}");
+                        return StatusCode((int)HttpStatusCode.InternalServerError, new
+                        {
+                            resultKo.Status,
+                            resultKo.Message,
+                            resultKo.Validation,
+                            resultKo.Value
+                        });
+                    }
+                    return BadRequest(jsonResponse);
                 }
                 else
                 {
-                    // Manejo del error
-                    _logger.LogError($"Error in LogOn: {result.Message}");
-                    return StatusCode((int)HttpStatusCode.InternalServerError, new
-                    {
-                        result.Status,
-                        result.Message,
-                        result.Validation,
-                        result.Value
-                    });
+                    return BadRequest(jsonResponse);
                 }
             }
             catch (Exception ex)
@@ -790,47 +943,59 @@ namespace BncPayments.Controllers
             }
         }
 
-        [HttpPost("CreditBeginner")]
-        public async Task<ActionResult> CreditBeginner(CreditBeginner model)
+        [HttpPost("BcvRates")]
+        public async Task<ActionResult> BcvRates()
         {
             try
             {
                 // TO DO: Verificar parametros del modelo
 
-                var response = await _bncServices.CreditBeginner(model);
+                var response = await _bncServices.BcvRates();
                 var jsonResponse = await response.Content.ReadAsStringAsync();
-                var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
 
-                /// TO DO: VALIDAR EL POSIBLE MENSAJE 'RWK' 
-                /// Para validar la validez del workingKey
-                /// si existe, llamar a LogOn nuevamente
-
-                if (result != null &&
-                    result.Message.Contains("RWK"))
+                if (response.IsSuccessStatusCode)
                 {
-                    await ManageRWK();
+                    var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
+
+                    if (result != null &&
+                        result.Status.Equals("OK"))
+                    {
+                        /// desencriptar el result.Value
+                        var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                        //var decryptResult = _encryptServices.DecryptText(result.Value, _workingKeyTests);
+
+                        var logOnResponse = JsonConvert.DeserializeObject<BcvRates>(decryptResult);
+
+                        return Ok(logOnResponse);
+                    }
+                    return Ok(jsonResponse);
+
                 }
-
-                if (response.IsSuccessStatusCode &&
-                    result != null &&
-                    result.Status.Equals("OK"))
+                else if (jsonResponse.Contains("RWK"))
                 {
-                    /// desencriptar el result.Value
-                    var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
-                    var logOnResponse = JsonConvert.DeserializeObject<CreditBeginner>(decryptResult);
-                    return Ok(logOnResponse);
+                    return await ManageRWK();
+                }
+                else if (jsonResponse.Contains("KO"))
+                {
+                    var resultKo = JsonConvert.DeserializeObject<Response>(jsonResponse);
+
+                    if (resultKo != null)
+                    {
+                        // Manejo del error
+                        _logger.LogError($"Error in LogOn: {resultKo.Message}");
+                        return StatusCode((int)HttpStatusCode.InternalServerError, new
+                        {
+                            resultKo.Status,
+                            resultKo.Message,
+                            resultKo.Validation,
+                            resultKo.Value
+                        });
+                    }
+                    return BadRequest(jsonResponse);
                 }
                 else
                 {
-                    // Manejo del error
-                    _logger.LogError($"Error in LogOn: {result.Message}");
-                    return StatusCode((int)HttpStatusCode.InternalServerError, new
-                    {
-                        result.Status,
-                        result.Message,
-                        result.Validation,
-                        result.Value
-                    });
+                    return BadRequest(jsonResponse);
                 }
             }
             catch (Exception ex)
@@ -841,108 +1006,7 @@ namespace BncPayments.Controllers
             }
         }
 
-        [HttpPost("ReverseDebit")]
-        public async Task<ActionResult> ReverseDebit(ReverseDebit model)
-        {
-            try
-            {
-                // TO DO: Verificar parametros del modelo
-
-                var response = await _bncServices.ReverseDebit(model);
-                var jsonResponse = await response.Content.ReadAsStringAsync();
-                var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
-
-                /// TO DO: VALIDAR EL POSIBLE MENSAJE 'RWK' 
-                /// Para validar la validez del workingKey
-                /// si existe, llamar a LogOn nuevamente
-
-                if (result != null &&
-                    result.Message.Contains("RWK"))
-                {
-                    await ManageRWK();
-                }
-
-                if (response.IsSuccessStatusCode &&
-                    result != null &&
-                    result.Status.Equals("OK"))
-                {
-                    /// desencriptar el result.Value
-                    var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
-                    var logOnResponse = JsonConvert.DeserializeObject<ReverseDebit>(decryptResult);
-                    return Ok(logOnResponse);
-                }
-                else
-                {
-                    // Manejo del error
-                    _logger.LogError($"Error in LogOn: {result.Message}");
-                    return StatusCode((int)HttpStatusCode.InternalServerError, new
-                    {
-                        result.Status,
-                        result.Message,
-                        result.Validation,
-                        result.Value
-                    });
-                }
-            }
-            catch (Exception ex)
-            {
-                // Manejo específico de la excepción
-                _logger.LogError($"Error in LogOn: {ex.Message}");
-                return StatusCode((int)HttpStatusCode.InternalServerError, new { Message = "An error occurred while processing your request." });
-            }
-        }
-
-        [HttpPost("GetStatusTrans")]
-        public async Task<ActionResult> GetStatusTrans(StatusTrans model)
-        {
-            try
-            {
-                // TO DO: Verificar parametros del modelo
-
-                var response = await _bncServices.GetStatusTrans(model);
-                var jsonResponse = await response.Content.ReadAsStringAsync();
-                var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
-
-                /// TO DO: VALIDAR EL POSIBLE MENSAJE 'RWK' 
-                /// Para validar la validez del workingKey
-                /// si existe, llamar a LogOn nuevamente
-
-                if (result != null &&
-                    result.Message.Contains("RWK"))
-                {
-                    await ManageRWK();
-                }
-
-                if (response.IsSuccessStatusCode &&
-                    result != null &&
-                    result.Status.Equals("OK"))
-                {
-                    /// desencriptar el result.Value
-                    var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
-                    var logOnResponse = JsonConvert.DeserializeObject<StatusTransResponse>(decryptResult);
-                    return Ok(logOnResponse);
-                }
-                else
-                {
-                    // Manejo del error
-                    _logger.LogError($"Error in LogOn: {result.Message}");
-                    return StatusCode((int)HttpStatusCode.InternalServerError, new
-                    {
-                        result.Status,
-                        result.Message,
-                        result.Validation,
-                        result.Value
-                    });
-                }
-            }
-            catch (Exception ex)
-            {
-                // Manejo específico de la excepción
-                _logger.LogError($"Error in LogOn: {ex.Message}");
-                return StatusCode((int)HttpStatusCode.InternalServerError, new { Message = "An error occurred while processing your request." });
-            }
-        }
-
+        [HttpPost("ManageRWK")]
         private async Task<ActionResult> ManageRWK()
         {
             var resultUpdate = await _bncServices.UpdateWorkingKey();
@@ -956,6 +1020,7 @@ namespace BncPayments.Controllers
                 return StatusCode((int)HttpStatusCode.InternalServerError, new { Message = "Error al intentar actulizar la working key" });
             }
         }
+
 
     }
 }

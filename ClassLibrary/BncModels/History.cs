@@ -12,7 +12,6 @@ namespace ClassLibrary.BncModels
         public string BranchID { get; set; } = string.Empty;
         public string ChildClientID { get; set; } = string.Empty;
         public string ClientID { get; set; } = string.Empty;
-
     }
 
     public class HistoryKey
