@@ -155,7 +155,7 @@ namespace BncPayments.Controllers
                 }
                 else if (jsonResponse.Contains("RWK"))
                 {
-                    return await ManageRWK();
+                    return await LogOn();
                 }
                 else if (jsonResponse.Contains("KO"))
                 {
@@ -218,7 +218,7 @@ namespace BncPayments.Controllers
                 }
                 else if (jsonResponse.Contains("RWK"))
                 {
-                    return await ManageRWK();
+                    return await LogOn();
                 }
                 else if (jsonResponse.Contains("KO"))
                 {
@@ -281,7 +281,7 @@ namespace BncPayments.Controllers
                 }
                 else if (jsonResponse.Contains("RWK"))
                 {
-                    return await ManageRWK();
+                    return await LogOn();
                 }
                 else if (jsonResponse.Contains("KO"))
                 {
@@ -344,7 +344,7 @@ namespace BncPayments.Controllers
                 }
                 else if (jsonResponse.Contains("RWK"))
                 {
-                    return await ManageRWK();
+                    return await LogOn();
                 }
                 else if (jsonResponse.Contains("KO"))
                 {
@@ -406,7 +406,7 @@ namespace BncPayments.Controllers
                 }
                 else if (jsonResponse.Contains("RWK"))
                 {
-                    return await ManageRWK();
+                    return await LogOn();
                 }
                 else if (jsonResponse.Contains("KO"))
                 {
@@ -468,7 +468,7 @@ namespace BncPayments.Controllers
                 }
                 else if (jsonResponse.Contains("RWK"))
                 {
-                    return await ManageRWK();
+                    return await LogOn();
                 }
                 else if (jsonResponse.Contains("KO"))
                 {
@@ -531,7 +531,7 @@ namespace BncPayments.Controllers
                 }
                 else if (jsonResponse.Contains("RWK"))
                 {
-                    return await ManageRWK();
+                    return await LogOn();
                 }
                 else if (jsonResponse.Contains("KO"))
                 {
@@ -594,7 +594,7 @@ namespace BncPayments.Controllers
                 }
                 else if (jsonResponse.Contains("RWK"))
                 {
-                    return await ManageRWK();
+                    return await LogOn();
                 }
                 else if (jsonResponse.Contains("KO"))
                 {
@@ -658,7 +658,7 @@ namespace BncPayments.Controllers
                 }
                 else if (jsonResponse.Contains("RWK"))
                 {
-                    return await ManageRWK();
+                    return await LogOn();
                 }
                 else if (jsonResponse.Contains("KO"))
                 {
@@ -721,7 +721,7 @@ namespace BncPayments.Controllers
                 }
                 else if (jsonResponse.Contains("RWK"))
                 {
-                    return await ManageRWK();
+                    return await LogOn();
                 }
                 else if (jsonResponse.Contains("KO"))
                 {
@@ -784,7 +784,7 @@ namespace BncPayments.Controllers
                 }
                 else if (jsonResponse.Contains("RWK"))
                 {
-                    return await ManageRWK();
+                    return await LogOn();
                 }
                 else if (jsonResponse.Contains("KO"))
                 {
@@ -847,7 +847,7 @@ namespace BncPayments.Controllers
                 }
                 else if (jsonResponse.Contains("RWK"))
                 {
-                    return await ManageRWK();
+                    return await LogOn();
                 }
                 else if (jsonResponse.Contains("KO"))
                 {
@@ -910,7 +910,7 @@ namespace BncPayments.Controllers
                 }
                 else if (jsonResponse.Contains("RWK"))
                 {
-                    return await ManageRWK();
+                    return await LogOn();
                 }
                 else if (jsonResponse.Contains("KO"))
                 {
@@ -973,7 +973,7 @@ namespace BncPayments.Controllers
                 }
                 else if (jsonResponse.Contains("RWK"))
                 {
-                    return await ManageRWK();
+                    return await LogOn();
                 }
                 else if (jsonResponse.Contains("KO"))
                 {
@@ -1006,21 +1006,19 @@ namespace BncPayments.Controllers
             }
         }
 
-        [HttpPost("ManageRWK")]
-        private async Task<ActionResult> ManageRWK()
-        {
-            var resultUpdate = await _bncServices.UpdateWorkingKey();
+        //[HttpPost("LogOn")]
+        //private async Task<ActionResult> LogOn()
+        //{
+        //    var resultUpdate = await _bncServices.UpdateWorkingKey();
 
-            if (!resultUpdate.Equals("KO"))
-            {
-                return Ok(resultUpdate);
-            }
-            else
-            {
-                return StatusCode((int)HttpStatusCode.InternalServerError, new { Message = "Error al intentar actulizar la working key" });
-            }
-        }
-
-
+        //    if (!resultUpdate.Equals("KO"))
+        //    {
+        //        return Ok(resultUpdate);
+        //    }
+        //    else
+        //    {
+        //        return StatusCode((int)HttpStatusCode.InternalServerError, new { Message = "Error al intentar actulizar la working key" });
+        //    }
+        //}
     }
 }
