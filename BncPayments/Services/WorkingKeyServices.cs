@@ -15,15 +15,24 @@ namespace BncPayments.Services
 
         public void SetWorkingKey(string workingKey)
         {
+            if (string.IsNullOrEmpty(workingKey))
+            {
+                _logger.LogWarning("Attempted to set an empty or null working key.");
+                return;
+            }
+
             _logger.LogInformation("Setting working key in cache.");
-            _memoryCache.Set(CacheWorkingKey, workingKey);
+            var cacheEntryOptions = new MemoryCacheEntryOptions()
+                .SetAbsoluteExpiration(TimeSpan.FromHours(24)) // Expiración absoluta de 24 horas
+                .SetSlidingExpiration(TimeSpan.FromHours(12)); // Expiración deslizante de 12 horas
+
+            _memoryCache.Set(CacheWorkingKey, workingKey, cacheEntryOptions);
         }
 
         public string GetWorkingKey()
         {
             _logger.LogInformation("Getting working key from cache.");
-            _memoryCache.TryGetValue(CacheWorkingKey, out string workingKey);
-            if (workingKey == null)
+            if (!_memoryCache.TryGetValue(CacheWorkingKey, out string workingKey))
             {
                 _logger.LogWarning("Working key not found in cache.");
             }
