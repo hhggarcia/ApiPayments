@@ -1,16 +1,69 @@
-﻿using Microsoft.Extensions.Caching.Memory;
+﻿using BncPayments.Models;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace BncPayments.Services
 {
-    public class WorkingKeyServices
+    public interface IWorkingKeyServices
     {
-        private readonly IMemoryCache _memoryCache;
+        Task<long> CreateWorkingKey(WorkingKey model);
+        Task<string> GetWorkingKey();
+        Task<WorkingKey> GetWorkingKeyObject();
+        void SetWorkingKey(string workingKey);
+    }
+    public class WorkingKeyServices : IWorkingKeyServices
+    {
+        private readonly EpaymentsContext _dbContext;
         private readonly ILogger<WorkingKeyServices> _logger;
-        private const string CacheWorkingKey = "";
-        public WorkingKeyServices(IMemoryCache memoryCache, ILogger<WorkingKeyServices> logger)
+
+        public WorkingKeyServices(EpaymentsContext context,
+            ILogger<WorkingKeyServices> logger)
         {
-            _memoryCache = memoryCache;
+            _dbContext = context;
             _logger = logger;
+        }
+
+        public async Task<string> GetWorkingKey()
+        {
+            _logger.LogInformation("Getting working key from database.");
+
+            var keyEntity = await _dbContext.WorkingKeys.FirstOrDefaultAsync(c => c.Activo);
+            return keyEntity?.Key ?? string.Empty;
+        }
+
+        public async Task<WorkingKey> GetWorkingKeyObject()
+        {
+            _logger.LogInformation("Getting working key from database.");
+
+            var keyEntity = await _dbContext.WorkingKeys.FirstOrDefaultAsync(c => c.Activo);
+            return keyEntity;
+        }
+
+        public async Task<long> CreateWorkingKey(WorkingKey model)
+        {
+            _logger.LogInformation("Create working key from database.");
+
+            var workingsPast = await _dbContext.WorkingKeys.ToListAsync();
+            model.Version = 1;
+            model.Activo = true;
+
+            if (workingsPast.Any())
+            {
+                var lastWorking = workingsPast.LastOrDefault();
+                if (lastWorking != null) 
+                {
+                    lastWorking.Activo = false;
+                    lastWorking.FechaExpiracion = DateTime.Now;
+                    model.Version = lastWorking.Version + 1;
+
+                    _dbContext.WorkingKeys.Update(lastWorking);
+                }
+
+                _dbContext.WorkingKeys.Add(model);
+                return await _dbContext.SaveChangesAsync();
+            }
+            _dbContext.WorkingKeys.Add(model);
+            return await _dbContext.SaveChangesAsync();
         }
 
         public void SetWorkingKey(string workingKey)
@@ -21,22 +74,24 @@ namespace BncPayments.Services
                 return;
             }
 
-            _logger.LogInformation("Setting working key in cache.");
-            var cacheEntryOptions = new MemoryCacheEntryOptions()
-                .SetAbsoluteExpiration(TimeSpan.FromHours(24)) // Expiración absoluta de 24 horas
-                .SetSlidingExpiration(TimeSpan.FromHours(12)); // Expiración deslizante de 12 horas
+            _logger.LogInformation("Setting working key in database.");
 
-            _memoryCache.Set(CacheWorkingKey, workingKey, cacheEntryOptions);
-        }
-
-        public string GetWorkingKey()
-        {
-            _logger.LogInformation("Getting working key from cache.");
-            if (!_memoryCache.TryGetValue(CacheWorkingKey, out string workingKey))
+            var keyEntity = _dbContext.WorkingKeys.FirstOrDefault(c => c.Activo);
+            if (keyEntity == null)
             {
-                _logger.LogWarning("Working key not found in cache.");
+                keyEntity = new WorkingKey 
+                { Key = workingKey, 
+                    Version = _dbContext.WorkingKeys.Count() + 1,  
+                    Activo = true 
+                };
+
+                _dbContext.WorkingKeys.Add(keyEntity);
             }
-            return workingKey;
+            else
+            {
+                keyEntity.Key = workingKey;
+            }
+            _dbContext.SaveChanges();
         }
     }
 }

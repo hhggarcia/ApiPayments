@@ -1,8 +1,11 @@
-﻿using ClassLibrary.BncModels;
+﻿using BncPayments.Models;
+using BncPayments.Utils;
+using ClassLibrary.BncModels;
 using Newtonsoft.Json;
 using System;
 using System.Net.Http;
 using System.Reflection;
+using System.Security.Cryptography.Xml;
 using System.Text;
 
 namespace BncPayments.Services
@@ -33,13 +36,15 @@ namespace BncPayments.Services
         private readonly HttpClient _httpClient;
         private readonly IEncryptionServices _encryptServices;
         private readonly IHashService _hashServices;
-        private readonly WorkingKeyServices _workingKeyServices;
+        private readonly IWorkingKeyServices _workingKeyServices;
         private readonly string _workingKeyTests;
+        private readonly IRequestServices _requestServices;
         private readonly ApiBncSettings _apiBncSettings;
         public BncServices(IEncryptionServices encryptService,
             IHashService hashServices,
             ApiBncSettings apiBncSettings,
-            WorkingKeyServices workingKeyServices)
+            IWorkingKeyServices workingKeyServices,
+            IRequestServices requestServices)
         {
             _apiBncSettings = apiBncSettings;
             _httpClient = new HttpClient();
@@ -48,6 +53,7 @@ namespace BncPayments.Services
             _hashServices = hashServices;
             _workingKeyServices = workingKeyServices;
             _workingKeyTests = "dd8321dc18579eed46015ab3fa518a88";
+            _requestServices = requestServices;
         }
 
         /// <summary>
@@ -115,7 +121,20 @@ namespace BncPayments.Services
         {
             string url = "MobPayment/SendP2P";
             var jsonConvert = JsonConvert.SerializeObject(model);
-            return await SendRequest(_workingKeyServices.GetWorkingKey() ?? "", jsonConvert, url);
+
+            var modelRequest = new RequestDb()
+            {
+                Method = Methods.SendP2P,
+                Url = url
+            };
+            // CREAR REQUEST EN BBDD
+            var resultCreate = await CreateRequest(modelRequest, 
+                await _workingKeyServices.GetWorkingKeyObject(), 
+                jsonConvert);
+
+            return await SendRequest(await _workingKeyServices.GetWorkingKey() ?? "", 
+                jsonConvert, 
+                url);
             //return await SendRequest(_workingKeyTests, jsonConvert, url);
         }
 
@@ -278,6 +297,18 @@ namespace BncPayments.Services
             var response = await _httpClient.PostAsync(url, httpContent);
 
             return response;
+        }
+
+        private async Task<bool> CreateRequest(RequestDb model, WorkingKey workingKey, string jsonObject)
+        {
+            var encryptModel = _encryptServices.EncryptBnc(jsonObject, workingKey.Key ?? "");
+
+            model.RequestBody = encryptModel;
+            model.WorkingKeyId = workingKey.Id;
+
+            var idRequest = await _requestServices.Create(model);
+
+            return idRequest != 0;
         }
     }
 }

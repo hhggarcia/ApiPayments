@@ -1,4 +1,5 @@
-﻿using BncPayments.Services;
+﻿using BncPayments.Models;
+using BncPayments.Services;
 using ClassLibrary.BncModels;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
@@ -16,14 +17,14 @@ namespace BncPayments.Controllers
         private readonly ILogger<BncController> _logger;
         private readonly IBncServices _bncServices;
         private readonly ApiBncSettings _apiBncSettings;
-        private readonly WorkingKeyServices _workingKey;
+        private readonly IWorkingKeyServices _workingKey;
         private readonly IEncryptionServices _encryptServices;
         private readonly string _workingKeyTests;
 
         public BncController(ILogger<BncController> logger,
             IBncServices bncServices,
             ApiBncSettings apiBncSettings,
-            WorkingKeyServices workingKey,
+            IWorkingKeyServices workingKey,
             IEncryptionServices encryptionServices)
         {
             _logger = logger;
@@ -34,34 +35,6 @@ namespace BncPayments.Controllers
             _workingKeyTests = "dd8321dc18579eed46015ab3fa518a88";
 
         }
-
-        //[HttpGet(Name = "posts")]
-        //public async Task<ActionResult> GetExternalData()
-        //{
-        //    var data = await _bncServices.GetExternalDataAsync();
-        //    return Ok(data);
-        //}
-
-        //[HttpPost("testPost")]
-        //public async Task<ActionResult> PostExternalData([FromBody] ModelExample model)
-        //{
-        //    var rest = await _bncServices.PostExternalData(model);
-        //    return Ok(rest);
-        //}
-
-        //[HttpGet("Encriptar")]
-        //public IActionResult Encriptar(string textoEncriptar)
-        //{
-        //    var encriptar = _encryptServices.EncryptBnc(textoEncriptar, _apiBncSettings.MasterKey);
-        //    return Ok(encriptar);
-        //}
-
-        //[HttpGet("Desencriptar")]
-        //public IActionResult Desencriptar(string textoDesencriptar)
-        //{
-        //    var desencriptar = _encryptServices.DecryptText(textoDesencriptar, _apiBncSettings.MasterKey);
-        //    return Ok(desencriptar);
-        //}
 
         [HttpPost("LogOn")]
         public async Task<ActionResult> LogOn()
@@ -85,7 +58,16 @@ namespace BncPayments.Controllers
 
                         if (logOnResponse != null)
                         {
-                            _workingKey.SetWorkingKey(logOnResponse.WorkingKey);
+                            var modelWorkingKey = new WorkingKey()
+                            {
+                                Key = logOnResponse.WorkingKey
+                            };
+                            var idWorkingKey = await _workingKey.CreateWorkingKey(modelWorkingKey);
+
+                            if (idWorkingKey != 0)
+                            {
+                                _logger.LogInformation("Creating working key BBDD.");
+                            }
                         }
                         _logger.LogInformation("Returning Ok response.");
                         return Ok(logOnResponse);
@@ -1006,19 +988,9 @@ namespace BncPayments.Controllers
             }
         }
 
-        //[HttpPost("LogOn")]
-        //private async Task<ActionResult> LogOn()
-        //{
-        //    var resultUpdate = await _bncServices.UpdateWorkingKey();
+        private async Task<bool> CreateResponse(ResponseDb model)
+        {
 
-        //    if (!resultUpdate.Equals("KO"))
-        //    {
-        //        return Ok(resultUpdate);
-        //    }
-        //    else
-        //    {
-        //        return StatusCode((int)HttpStatusCode.InternalServerError, new { Message = "Error al intentar actulizar la working key" });
-        //    }
-        //}
+        }
     }
 }
