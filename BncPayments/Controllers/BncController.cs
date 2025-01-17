@@ -1,4 +1,5 @@
-﻿using BncPayments.Services;
+﻿using BncPayments.Models;
+using BncPayments.Services;
 using ClassLibrary.BncModels;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
@@ -35,34 +36,6 @@ namespace BncPayments.Controllers
 
         }
 
-        //[HttpGet(Name = "posts")]
-        //public async Task<ActionResult> GetExternalData()
-        //{
-        //    var data = await _bncServices.GetExternalDataAsync();
-        //    return Ok(data);
-        //}
-
-        //[HttpPost("testPost")]
-        //public async Task<ActionResult> PostExternalData([FromBody] ModelExample model)
-        //{
-        //    var rest = await _bncServices.PostExternalData(model);
-        //    return Ok(rest);
-        //}
-
-        //[HttpGet("Encriptar")]
-        //public IActionResult Encriptar(string textoEncriptar)
-        //{
-        //    var encriptar = _encryptServices.EncryptBnc(textoEncriptar, _apiBncSettings.MasterKey);
-        //    return Ok(encriptar);
-        //}
-
-        //[HttpGet("Desencriptar")]
-        //public IActionResult Desencriptar(string textoDesencriptar)
-        //{
-        //    var desencriptar = _encryptServices.DecryptText(textoDesencriptar, _apiBncSettings.MasterKey);
-        //    return Ok(desencriptar);
-        //}
-
         [HttpPost("LogOn")]
         public async Task<ActionResult> LogOn()
         {
@@ -85,7 +58,16 @@ namespace BncPayments.Controllers
 
                         if (logOnResponse != null)
                         {
-                            _workingKey.SetWorkingKey(logOnResponse.WorkingKey);
+                            var modelWorkingKey = new WorkingKey()
+                            {
+                                Key = logOnResponse.WorkingKey
+                            };
+                            var idWorkingKey = await _workingKey.CreateWorkingKey(modelWorkingKey);
+
+                            if (idWorkingKey != 0)
+                            {
+                                _logger.LogInformation("Creating working key BBDD.");
+                            }
                         }
                         _logger.LogInformation("Returning Ok response.");
                         return Ok(logOnResponse);
@@ -138,12 +120,11 @@ namespace BncPayments.Controllers
                 if (response.IsSuccessStatusCode)
                 {
                     var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
-
                     if (result != null &&
                         result.Status.Equals("OK"))
                     {
                         /// desencriptar el result.Value
-                        var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                        var decryptResult = _encryptServices.DecryptText(result.Value, await _workingKey.GetWorkingKey());
                         //var decryptResult = _encryptServices.DecryptText(result.Value, _workingKeyTests);
 
                         var logOnResponse = JsonConvert.DeserializeObject<SendP2PResponse>(decryptResult);
@@ -206,7 +187,7 @@ namespace BncPayments.Controllers
                         result.Status.Equals("OK"))
                     {
                         /// desencriptar el result.Value
-                        var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                        var decryptResult = _encryptServices.DecryptText(result.Value, await _workingKey.GetWorkingKey());
                         //var decryptResult = _encryptServices.DecryptText(result.Value, _workingKeyTests);
 
                         var logOnResponse = JsonConvert.DeserializeObject<SendC2PResponse>(decryptResult);
@@ -269,7 +250,7 @@ namespace BncPayments.Controllers
                         result.Status.Equals("OK"))
                     {
                         /// desencriptar el result.Value
-                        var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                        var decryptResult = _encryptServices.DecryptText(result.Value, await _workingKey.GetWorkingKey());
                         //var decryptResult = _encryptServices.DecryptText(result.Value, _workingKeyTests);
 
                         var logOnResponse = JsonConvert.DeserializeObject<ReverseC2PResponse>(decryptResult);
@@ -332,7 +313,7 @@ namespace BncPayments.Controllers
                         result.Status.Equals("OK"))
                     {
                         /// desencriptar el result.Value
-                        var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                        var decryptResult = _encryptServices.DecryptText(result.Value, await _workingKey.GetWorkingKey());
                         //var decryptResult = _encryptServices.DecryptText(result.Value, _workingKeyTests);
 
                         var logOnResponse = JsonConvert.DeserializeObject<ReverseC2PaltResponse>(decryptResult);
@@ -394,7 +375,7 @@ namespace BncPayments.Controllers
                         result.Status.Equals("OK"))
                     {
                         /// desencriptar el result.Value
-                        var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                        var decryptResult = _encryptServices.DecryptText(result.Value, await _workingKey.GetWorkingKey());
                         //var decryptResult = _encryptServices.DecryptText(result.Value, _workingKeyTests);
 
                         var logOnResponse = JsonConvert.DeserializeObject<SendResponse>(decryptResult);
@@ -456,7 +437,7 @@ namespace BncPayments.Controllers
                         result.Status.Equals("OK"))
                     {
                         /// desencriptar el result.Value
-                        var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                        var decryptResult = _encryptServices.DecryptText(result.Value, await _workingKey.GetWorkingKey());
                         //var decryptResult = _encryptServices.DecryptText(result.Value, _workingKeyTests);
 
                         var logOnResponse = JsonConvert.DeserializeObject<List<Banks>>(decryptResult);
@@ -519,7 +500,7 @@ namespace BncPayments.Controllers
                         result.Status.Equals("OK"))
                     {
                         /// desencriptar el result.Value
-                        var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                        var decryptResult = _encryptServices.DecryptText(result.Value, await _workingKey.GetWorkingKey());
                         //var decryptResult = _encryptServices.DecryptText(result.Value, _workingKeyTests);
 
                         var logOnResponse = JsonConvert.DeserializeObject<Dictionary<string, CurrentItem>>(decryptResult);
@@ -582,7 +563,7 @@ namespace BncPayments.Controllers
                         result.Status.Equals("OK"))
                     {
                         /// desencriptar el result.Value
-                        var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                        var decryptResult = _encryptServices.DecryptText(result.Value, await _workingKey.GetWorkingKey());
                         //var decryptResult = _encryptServices.DecryptText(result.Value, _workingKeyTests);
 
                         var logOnResponse = JsonConvert.DeserializeObject<Dictionary<HistoryKey, HistoryValue>>(decryptResult);
@@ -646,7 +627,7 @@ namespace BncPayments.Controllers
                         result.Status.Equals("OK"))
                     {
                         /// desencriptar el result.Value
-                        var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                        var decryptResult = _encryptServices.DecryptText(result.Value, await _workingKey.GetWorkingKey());
                         //var decryptResult = _encryptServices.DecryptText(result.Value, _workingKeyTests);
 
                         var logOnResponse = JsonConvert.DeserializeObject<Dictionary<string, List<HistoryByDateValue>>>(decryptResult);
@@ -709,7 +690,7 @@ namespace BncPayments.Controllers
                         result.Status.Equals("OK"))
                     {
                         /// desencriptar el result.Value
-                        var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                        var decryptResult = _encryptServices.DecryptText(result.Value, await _workingKey.GetWorkingKey());
                         //var decryptResult = _encryptServices.DecryptText(result.Value, _workingKeyTests);
 
                         var logOnResponse = JsonConvert.DeserializeObject<ValidateResponse>(decryptResult);
@@ -772,7 +753,7 @@ namespace BncPayments.Controllers
                         result.Status.Equals("OK"))
                     {
                         /// desencriptar el result.Value
-                        var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                        var decryptResult = _encryptServices.DecryptText(result.Value, await _workingKey.GetWorkingKey());
                         //var decryptResult = _encryptServices.DecryptText(result.Value, _workingKeyTests);
 
                         var logOnResponse = JsonConvert.DeserializeObject<ValidateExistenceResponse>(decryptResult);
@@ -835,7 +816,7 @@ namespace BncPayments.Controllers
                         result.Status.Equals("OK"))
                     {
                         /// desencriptar el result.Value
-                        var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                        var decryptResult = _encryptServices.DecryptText(result.Value, await _workingKey.GetWorkingKey());
                         //var decryptResult = _encryptServices.DecryptText(result.Value, _workingKeyTests);
 
                         var logOnResponse = JsonConvert.DeserializeObject<ValidateP2PResponse>(decryptResult);
@@ -898,7 +879,7 @@ namespace BncPayments.Controllers
                         result.Status.Equals("OK"))
                     {
                         /// desencriptar el result.Value
-                        var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                        var decryptResult = _encryptServices.DecryptText(result.Value, await _workingKey.GetWorkingKey());
                         //var decryptResult = _encryptServices.DecryptText(result.Value, _workingKeyTests);
 
                         var logOnResponse = JsonConvert.DeserializeObject<List<TransactionPosResponse>>(decryptResult);
@@ -961,7 +942,7 @@ namespace BncPayments.Controllers
                         result.Status.Equals("OK"))
                     {
                         /// desencriptar el result.Value
-                        var decryptResult = _encryptServices.DecryptText(result.Value, _workingKey.GetWorkingKey());
+                        var decryptResult = _encryptServices.DecryptText(result.Value, await _workingKey.GetWorkingKey());
                         //var decryptResult = _encryptServices.DecryptText(result.Value, _workingKeyTests);
 
                         var logOnResponse = JsonConvert.DeserializeObject<BcvRates>(decryptResult);
@@ -1006,19 +987,6 @@ namespace BncPayments.Controllers
             }
         }
 
-        //[HttpPost("LogOn")]
-        //private async Task<ActionResult> LogOn()
-        //{
-        //    var resultUpdate = await _bncServices.UpdateWorkingKey();
 
-        //    if (!resultUpdate.Equals("KO"))
-        //    {
-        //        return Ok(resultUpdate);
-        //    }
-        //    else
-        //    {
-        //        return StatusCode((int)HttpStatusCode.InternalServerError, new { Message = "Error al intentar actulizar la working key" });
-        //    }
-        //}
     }
 }
