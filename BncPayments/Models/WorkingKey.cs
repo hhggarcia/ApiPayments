@@ -1,34 +1,21 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
-using System.ComponentModel.DataAnnotations;
+﻿using System;
+using System.Collections.Generic;
 
-namespace BncPayments.Models
+namespace BncPayments.Models;
+
+public partial class WorkingKey
 {
-    public class WorkingKey
-    {
-        [Key]
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        public long Id { get; set; }
+    public long Id { get; set; }
 
-        [Required]
-        [MaxLength]
-        public string? Key { get; set; }
+    public string Key { get; set; } = null!;
 
-        [Required]
-        [DataType(DataType.DateTime)]
+    public DateTime FechaCreacion { get; set; }
 
-        public DateTime FechaCreacion { get; set; } = DateTime.Now;
+    public DateTime? FechaExpiracion { get; set; }
 
-        [Required]
-        [DataType(DataType.DateTime)]
+    public int Version { get; set; }
 
-        public DateTime? FechaExpiracion { get; set; }
+    public bool Activo { get; set; }
 
-        [Required]
-        public int Version { get; set; } = 0;
-        
-        public bool Activo { get; set; }
-
-        public virtual ICollection<RequestDb> Requests { get; set; } = new List<RequestDb>();
-
-    }
+    public virtual ICollection<RequestDb> Requests { get; set; } = new List<RequestDb>();
 }

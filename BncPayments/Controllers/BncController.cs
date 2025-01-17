@@ -17,14 +17,14 @@ namespace BncPayments.Controllers
         private readonly ILogger<BncController> _logger;
         private readonly IBncServices _bncServices;
         private readonly ApiBncSettings _apiBncSettings;
-        private readonly IWorkingKeyServices _workingKey;
+        private readonly WorkingKeyServices _workingKey;
         private readonly IEncryptionServices _encryptServices;
         private readonly string _workingKeyTests;
 
         public BncController(ILogger<BncController> logger,
             IBncServices bncServices,
             ApiBncSettings apiBncSettings,
-            IWorkingKeyServices workingKey,
+            WorkingKeyServices workingKey,
             IEncryptionServices encryptionServices)
         {
             _logger = logger;

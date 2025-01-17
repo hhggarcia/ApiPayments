@@ -1,25 +1,24 @@
 ﻿using BncPayments.Utils;
-using System.ComponentModel.DataAnnotations;
+using System;
+using System.Collections.Generic;
 
-namespace BncPayments.Models
+namespace BncPayments.Models;
+
+public partial class RequestDb
 {
-    public class RequestDb
-    {
-        [Key]
-        public long Id { get; set; }
-        [Required]
-        public Methods Method { get; set; }
-        [Required]
-        public string? Url { get; set; }
-        [Required]
-        [DataType(DataType.DateTime)]
-        public DateTime Timestamp { get; set; } = DateTime.Now;
-        [Required]
-        [MaxLength]
-        public string? RequestBody { get; set; }
+    public long Id { get; set; }
 
-        // Relación con WorkingKey
-        public long WorkingKeyId { get; set; }
-        public virtual WorkingKey WorkingKey { get; set; } = null!;
-    }
+    public Methods Method { get; set; }
+
+    public string Url { get; set; } = null!;
+
+    public DateTime Timestamp { get; set; }
+
+    public string RequestBody { get; set; } = null!;
+
+    public long IdWorkingKey { get; set; }
+
+    public virtual WorkingKey IdWorkingKeyNavigation { get; set; } = null!;
+
+    public virtual ICollection<ResponseDb> Responses { get; set; } = new List<ResponseDb>();
 }

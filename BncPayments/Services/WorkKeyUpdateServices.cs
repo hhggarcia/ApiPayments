@@ -8,7 +8,7 @@ namespace BncPayments.Services
     public class WorkKeyUpdateServices : IHostedService, IDisposable
     {
         private readonly IServiceProvider _serviceProvider;
-        private readonly EpaymentsContext _dbContext;
+        private readonly DbEpaymentsContext _dbContext;
         private readonly ApiBncSettings _apiBncSettings;
         private readonly IEncryptionServices _encryptServices;
         private readonly ILogger<WorkKeyUpdateServices> _logger;
@@ -114,7 +114,7 @@ namespace BncPayments.Services
             {
                 using (var scope = _serviceProvider.CreateScope())
                 {
-                    var _dbContext = scope.ServiceProvider.GetRequiredService<EpaymentsContext>();
+                    var _dbContext = scope.ServiceProvider.GetRequiredService<DbEpaymentsContext>();
                     _logger.LogInformation("Create working key from database.");
 
                     var workingsPast = await _dbContext.WorkingKeys.ToListAsync();

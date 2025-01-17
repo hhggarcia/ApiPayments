@@ -8,17 +8,24 @@ namespace BncPayments.Services
     }
     public class ResponseServices : IResponseServices
     {
-        private readonly EpaymentsContext _dbContext;
+        private readonly DbEpaymentsContext _dbContext;
 
-        public ResponseServices(EpaymentsContext context)
+        public ResponseServices(DbEpaymentsContext context)
         {
             _dbContext = context;
         }
 
         public async Task<long> Create(ResponseDb model)
         {
-            _dbContext.Responses.Add(model);
-            return await _dbContext.SaveChangesAsync();
+            try
+            {
+                _dbContext.Responses.Add(model);
+                return await _dbContext.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                return 0;
+            }            
         }
     }
 }

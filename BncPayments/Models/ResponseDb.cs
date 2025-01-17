@@ -1,20 +1,19 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System;
+using System.Collections.Generic;
 
-namespace BncPayments.Models
+namespace BncPayments.Models;
+
+public partial class ResponseDb
 {
-    public class ResponseDb
-    {
-        [Key]
-        public long Id { get; set; }
-        public long RequestId { get; set; }
-        public virtual RequestDb Request { get; set; }
-        [Required]
-        [StringLength(50)]
-        public string? StatusCode { get; set; }
-        [Required]
-        public string? ResponseBody { get; set; }
-        [Required]
-        [DataType(DataType.DateTime)]
-        public DateTime Timestamp { get; set; } = DateTime.Now;
-    }
+    public long Id { get; set; }
+
+    public string StatusCode { get; set; } = null!;
+
+    public string ResponseBody { get; set; } = null!;
+
+    public DateTime Timestamp { get; set; }
+
+    public long IdRequest { get; set; }
+
+    public virtual RequestDb IdRequestNavigation { get; set; } = null!;
 }

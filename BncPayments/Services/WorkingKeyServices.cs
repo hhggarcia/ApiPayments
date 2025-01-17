@@ -4,19 +4,12 @@ using Microsoft.Extensions.Caching.Memory;
 
 namespace BncPayments.Services
 {
-    public interface IWorkingKeyServices
+    public class WorkingKeyServices
     {
-        Task<long> CreateWorkingKey(WorkingKey model);
-        Task<string> GetWorkingKey();
-        Task<WorkingKey> GetWorkingKeyObject();
-        void SetWorkingKey(string workingKey);
-    }
-    public class WorkingKeyServices : IWorkingKeyServices
-    {
-        private readonly EpaymentsContext _dbContext;
+        private readonly DbEpaymentsContext _dbContext;
         private readonly ILogger<WorkingKeyServices> _logger;
 
-        public WorkingKeyServices(EpaymentsContext context,
+        public WorkingKeyServices(DbEpaymentsContext context, 
             ILogger<WorkingKeyServices> logger)
         {
             _dbContext = context;
@@ -25,32 +18,45 @@ namespace BncPayments.Services
 
         public async Task<string> GetWorkingKey()
         {
-            _logger.LogInformation("Getting working key from database.");
+            try
+            {
 
-            var keyEntity = await _dbContext.WorkingKeys.FirstOrDefaultAsync(c => c.Activo);
-            return keyEntity?.Key ?? string.Empty;
+                _logger.LogInformation("Getting working key from database.");
+                var keyEntity = await _dbContext.WorkingKeys.FirstOrDefaultAsync(c => c.Activo);
+                var key = keyEntity?.Key ?? string.Empty;
+                return key;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while getting the working key.");
+                return string.Empty;
+            }
         }
 
         public async Task<WorkingKey> GetWorkingKeyObject()
         {
-            _logger.LogInformation("Getting working key from database.");
-
-            var keyEntity = await _dbContext.WorkingKeys.FirstOrDefaultAsync(c => c.Activo);
-            return keyEntity;
+            try
+            {
+                _logger.LogInformation("Getting working key from database.");
+                var keyEntity = await _dbContext.WorkingKeys.FirstOrDefaultAsync(c => c.Activo);
+                return keyEntity ?? new WorkingKey();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while getting the working key object.");
+                return new WorkingKey();
+            }
         }
 
         public async Task<long> CreateWorkingKey(WorkingKey model)
         {
-            _logger.LogInformation("Create working key from database.");
-
-            var workingsPast = await _dbContext.WorkingKeys.ToListAsync();
-            model.Version = 1;
-            model.Activo = true;
-
-            if (workingsPast.Any())
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+            try
             {
-                var lastWorking = workingsPast.LastOrDefault();
-                if (lastWorking != null) 
+                _logger.LogInformation("Creating working key in database.");
+
+                var lastWorking = await _dbContext.WorkingKeys.OrderByDescending(w => w.Version).FirstOrDefaultAsync();
+                if (lastWorking != null)
                 {
                     lastWorking.Activo = false;
                     lastWorking.FechaExpiracion = DateTime.Now;
@@ -58,40 +64,58 @@ namespace BncPayments.Services
 
                     _dbContext.WorkingKeys.Update(lastWorking);
                 }
+                else
+                {
+                    model.Version = 1;
+                }
 
+                model.Activo = true;
                 _dbContext.WorkingKeys.Add(model);
-                return await _dbContext.SaveChangesAsync();
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+                return model.Id;
             }
-            _dbContext.WorkingKeys.Add(model);
-            return await _dbContext.SaveChangesAsync();
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "An error occurred while creating the working key.");
+                return 0;
+            }
         }
 
         public void SetWorkingKey(string workingKey)
         {
-            if (string.IsNullOrEmpty(workingKey))
+            try
             {
-                _logger.LogWarning("Attempted to set an empty or null working key.");
-                return;
+                if (string.IsNullOrEmpty(workingKey))
+                {
+                    _logger.LogWarning("Attempted to set an empty or null working key.");
+                    return;
+                }
+
+                _logger.LogInformation("Setting working key in database.");
+                var keyEntity = _dbContext.WorkingKeys.FirstOrDefault(c => c.Activo);
+                if (keyEntity == null)
+                {
+                    keyEntity = new WorkingKey
+                    {
+                        Key = workingKey,
+                        Version = _dbContext.WorkingKeys.Count() + 1,
+                        Activo = true
+                    };
+
+                    _dbContext.WorkingKeys.Add(keyEntity);
+                }
+                else
+                {
+                    keyEntity.Key = workingKey;
+                }
+                _dbContext.SaveChanges();
             }
-
-            _logger.LogInformation("Setting working key in database.");
-
-            var keyEntity = _dbContext.WorkingKeys.FirstOrDefault(c => c.Activo);
-            if (keyEntity == null)
+            catch (Exception ex)
             {
-                keyEntity = new WorkingKey 
-                { Key = workingKey, 
-                    Version = _dbContext.WorkingKeys.Count() + 1,  
-                    Activo = true 
-                };
-
-                _dbContext.WorkingKeys.Add(keyEntity);
+                _logger.LogError(ex, "An error occurred while setting the working key.");
             }
-            else
-            {
-                keyEntity.Key = workingKey;
-            }
-            _dbContext.SaveChanges();
         }
     }
 }

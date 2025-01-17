@@ -36,7 +36,7 @@ namespace BncPayments.Services
         private readonly HttpClient _httpClient;
         private readonly IEncryptionServices _encryptServices;
         private readonly IHashService _hashServices;
-        private readonly IWorkingKeyServices _workingKeyServices;
+        private readonly WorkingKeyServices _workingKeyServices;
         private readonly string _workingKeyTests;
         private readonly IRequestServices _requestServices;
         private readonly IResponseServices _responseServices;
@@ -44,7 +44,7 @@ namespace BncPayments.Services
         public BncServices(IEncryptionServices encryptService,
             IHashService hashServices,
             ApiBncSettings apiBncSettings,
-            IWorkingKeyServices workingKeyServices,
+            WorkingKeyServices workingKeyServices,
             IRequestServices requestServices,
             IResponseServices responseServices)
         {
@@ -441,7 +441,7 @@ namespace BncPayments.Services
             var encryptModel = _encryptServices.EncryptBnc(jsonObject, workingKey.Key ?? "");
 
             model.RequestBody = encryptModel;
-            model.WorkingKeyId = workingKey.Id;
+            model.IdWorkingKey = workingKey.Id;
 
             var idRequest = await _requestServices.Create(model);
 
@@ -450,13 +450,13 @@ namespace BncPayments.Services
 
         private async Task CreateResponse(HttpResponseMessage responseApi, long idRequest)
         {
-            if (responseApi != null && idRequest != 0) 
+            if (responseApi != null && idRequest != 0)
             {
                 var jsonResponse = await responseApi.Content.ReadAsStringAsync();
 
                 var model = new ResponseDb()
                 {
-                    RequestId = idRequest,
+                    IdRequest = idRequest,
                     StatusCode = responseApi.StatusCode.ToString(),
                     ResponseBody = jsonResponse
                 };

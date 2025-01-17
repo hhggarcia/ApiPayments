@@ -13,7 +13,7 @@ builder.Services.AddControllers();
 // db config
 var connectionString = builder.Configuration.GetConnectionString("ApplicationDBContextConnection") ?? throw new InvalidOperationException("Connection string 'ApplicationDBContextConnection' not found.");
 
-builder.Services.AddDbContext<EpaymentsContext>(options =>
+builder.Services.AddDbContext<DbEpaymentsContext>(options =>
     options.UseSqlServer(connectionString, sqlServerOptionsAction: sqlOptions =>
     {
         sqlOptions.EnableRetryOnFailure(
@@ -34,7 +34,7 @@ builder.Services.Configure<ApiBncSettings>(builder.Configuration.GetSection("Api
 builder.Services.AddScoped<IBncServices, BncServices>();
 builder.Services.AddScoped<IRequestServices, RequestServices>();
 builder.Services.AddScoped<IResponseServices, ResponseServices>();
-builder.Services.AddScoped<IWorkingKeyServices, WorkingKeyServices>();
+builder.Services.AddScoped<WorkingKeyServices>();
 
 
 // TRANSIENTS
