@@ -4,7 +4,7 @@ namespace BncPayments.Services
 {
     public interface IResponseServices
     {
-
+        Task<long> Create(ResponseDb model);
     }
     public class ResponseServices : IResponseServices
     {

@@ -1,18 +1,27 @@
-﻿namespace BncPayments.Services
+﻿using BncPayments.Models;
+using ClassLibrary.BncModels;
+using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
+
+namespace BncPayments.Services
 {
     public class WorkKeyUpdateServices : IHostedService, IDisposable
     {
         private readonly IServiceProvider _serviceProvider;
-        private readonly WorkingKeyServices _workingKeyServices;
+        private readonly EpaymentsContext _dbContext;
+        private readonly ApiBncSettings _apiBncSettings;
+        private readonly IEncryptionServices _encryptServices;
         private readonly ILogger<WorkKeyUpdateServices> _logger;
         private Timer _timer;
 
         public WorkKeyUpdateServices(IServiceProvider serviceProvider,
-            WorkingKeyServices workingKeyServices,
+            ApiBncSettings apiBncSettings,
+            IEncryptionServices encryptionServices,
             ILogger<WorkKeyUpdateServices> logger)
         {
             _serviceProvider = serviceProvider;
-            _workingKeyServices = workingKeyServices;
+            _apiBncSettings = apiBncSettings;
+            _encryptServices = encryptionServices;
             _logger = logger;
         }
 
@@ -42,12 +51,38 @@
                 using (var scope = _serviceProvider.CreateScope())
                 {
                     var bncServices = scope.ServiceProvider.GetRequiredService<IBncServices>();
-                    var workingKey = await bncServices.UpdateWorkingKey();
+                    var response = await bncServices.LogOn();
+                    var jsonResponse = await response.Content.ReadAsStringAsync();
 
-                    if (!workingKey.Equals("KO"))
+                    if (response.IsSuccessStatusCode)
                     {
-                        _logger.LogInformation("Updating working key.");
-                        _workingKeyServices.SetWorkingKey(workingKey);
+                        var result = JsonConvert.DeserializeObject<Response>(jsonResponse);
+
+                        if (result != null &&
+                            result.Status.Equals("OK"))
+                        {
+                            /// desencriptar el result.Value
+                            var decryptResult = _encryptServices.DecryptText(result.Value, _apiBncSettings.MasterKey);
+
+                            var logOnResponse = JsonConvert.DeserializeObject<LogOnResponse>(decryptResult);
+
+                            if (logOnResponse != null)
+                            {
+                                var modelWorkingKey = new WorkingKey()
+                                {
+                                    Key = logOnResponse.WorkingKey
+                                };
+                                var idWorkingKey = await CreateWorkingKey(modelWorkingKey);
+
+                                if (idWorkingKey != 0)
+                                {
+                                    _logger.LogInformation("Creating working key BBDD.");
+                                }
+                            }
+                            _logger.LogInformation("Returning Ok response.");
+                            
+                        }
+                        _logger.LogInformation("Returning Ok response.");
                     }
                     else
                     {
@@ -71,6 +106,45 @@
         public void Dispose()
         {
             _timer?.Dispose();
+        }
+
+        private async Task<long> CreateWorkingKey(WorkingKey model)
+        {
+            try
+            {
+                using (var scope = _serviceProvider.CreateScope())
+                {
+                    var _dbContext = scope.ServiceProvider.GetRequiredService<EpaymentsContext>();
+                    _logger.LogInformation("Create working key from database.");
+
+                    var workingsPast = await _dbContext.WorkingKeys.ToListAsync();
+                    model.Version = 1;
+                    model.Activo = true;
+
+                    if (workingsPast.Any())
+                    {
+                        var lastWorking = workingsPast.LastOrDefault();
+                        if (lastWorking != null)
+                        {
+                            lastWorking.Activo = false;
+                            lastWorking.FechaExpiracion = DateTime.Now;
+                            model.Version = lastWorking.Version + 1;
+
+                            _dbContext.WorkingKeys.Update(lastWorking);
+                        }
+
+                        _dbContext.WorkingKeys.Add(model);
+                        return await _dbContext.SaveChangesAsync();
+                    }
+                    _dbContext.WorkingKeys.Add(model);
+                    return await _dbContext.SaveChangesAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while updating the working key.");
+                return 0;
+            }
         }
     }
 }

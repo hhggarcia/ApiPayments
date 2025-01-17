@@ -29,17 +29,21 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.Configure<ApiBncSettings>(builder.Configuration.GetSection("ApiBncSettings"));
 
-// SINGLETON
-builder.Services.AddSingleton(resolver => resolver.GetRequiredService<IOptions<ApiBncSettings>>().Value);
-builder.Services.AddSingleton<IWorkingKeyServices, WorkingKeyServices>();
 
 // SCOPED
 builder.Services.AddScoped<IBncServices, BncServices>();
 builder.Services.AddScoped<IRequestServices, RequestServices>();
+builder.Services.AddScoped<IResponseServices, ResponseServices>();
+builder.Services.AddScoped<IWorkingKeyServices, WorkingKeyServices>();
+
 
 // TRANSIENTS
 builder.Services.AddTransient<IHashService, HashServices>();
 builder.Services.AddTransient<IEncryptionServices, EncryptionServices>();
+
+
+// SINGLETON
+builder.Services.AddSingleton(resolver => resolver.GetRequiredService<IOptions<ApiBncSettings>>().Value);
 
 builder.Services.AddHostedService<WorkKeyUpdateServices>();
 
