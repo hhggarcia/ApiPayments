@@ -452,16 +452,21 @@ namespace BncPayments.Services
         {
             if (responseApi != null && idRequest != 0)
             {
-                var jsonResponse = await responseApi.Content.ReadAsStringAsync();
+                var request = await _requestServices.GetRequest(idRequest);
 
-                var model = new ResponseDb()
+                if (request != null)
                 {
-                    IdRequest = idRequest,
-                    StatusCode = responseApi.StatusCode.ToString(),
-                    ResponseBody = jsonResponse
-                };
+                    var jsonResponse = await responseApi.Content.ReadAsStringAsync();
 
-                await _responseServices.Create(model);
+                    var model = new ResponseDb()
+                    {
+                        IdRequest = request.Id,
+                        StatusCode = responseApi.StatusCode.ToString(),
+                        ResponseBody = jsonResponse
+                    };
+
+                    await _responseServices.Create(model);
+                }               
             }
         }
     }

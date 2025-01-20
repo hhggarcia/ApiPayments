@@ -12,7 +12,7 @@ public partial class RequestDb
 
     public string Url { get; set; } = null!;
 
-    public DateTime Timestamp { get; set; }
+    public DateTime Timestamp { get; set; } = DateTime.Now;
 
     public string RequestBody { get; set; } = null!;
 

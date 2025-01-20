@@ -21,10 +21,10 @@ namespace ClassLibrary.BncModels
         public string BeneficiaryID { get; set; } = string.Empty;
         [StringLength(100)]
         public string BeneficiaryName { get; set; } = string.Empty;
-        [StringLength(6)]
-        public string? BranchID { get; set; } = null!;
-        [RegularExpression(@"^[A-Z]{1}\d{8,9}$", ErrorMessage = "Formato de ID inválido.")]
-        public string? ChildClientID { get; set; } = null!;
+       // [StringLength(6)]
+        public string? BranchID { get; set; }
+        //[RegularExpression(@"^[A-Z]{1}\d{8,9}$", ErrorMessage = "Formato de ID inválido.")]
+        public string? ChildClientID { get; set; }
         [StringLength(100)]
         public string Description { get; set; } = string.Empty;
         [StringLength(20)]
