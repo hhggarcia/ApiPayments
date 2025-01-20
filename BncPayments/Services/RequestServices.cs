@@ -5,6 +5,7 @@ namespace BncPayments.Services
     public interface IRequestServices
     {
         Task<long> Create(RequestDb model);
+        Task<RequestDb> GetRequest(long id);
     }
     public class RequestServices : IRequestServices
     {
@@ -15,12 +16,19 @@ namespace BncPayments.Services
             _dbContext = context;
         }
 
+        public async Task<RequestDb> GetRequest(long id)
+        {
+            var request = await _dbContext.Requests.FindAsync(id);
+            return request;
+        }
+
         public async Task<long> Create(RequestDb model)
         {
             try
             {
                 _dbContext.Requests.Add(model);
-                return await _dbContext.SaveChangesAsync();
+                await _dbContext.SaveChangesAsync();
+                return model.Id;
             }
             catch (Exception ex)
             {

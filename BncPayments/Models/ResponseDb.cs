@@ -11,7 +11,7 @@ public partial class ResponseDb
 
     public string ResponseBody { get; set; } = null!;
 
-    public DateTime Timestamp { get; set; }
+    public DateTime Timestamp { get; set; } = DateTime.Now;
 
     public long IdRequest { get; set; }
 

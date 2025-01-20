@@ -50,12 +50,12 @@ namespace BncPayments.Services
 
         public async Task<long> CreateWorkingKey(WorkingKey model)
         {
-            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+            
             try
             {
                 _logger.LogInformation("Creating working key in database.");
 
-                var lastWorking = await _dbContext.WorkingKeys.OrderByDescending(w => w.Version).FirstOrDefaultAsync();
+                var lastWorking = await _dbContext.WorkingKeys.FirstOrDefaultAsync(c => c.Activo);
                 if (lastWorking != null)
                 {
                     lastWorking.Activo = false;
@@ -72,12 +72,12 @@ namespace BncPayments.Services
                 model.Activo = true;
                 _dbContext.WorkingKeys.Add(model);
                 await _dbContext.SaveChangesAsync();
-                await transaction.CommitAsync();
+               
                 return model.Id;
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
+               
                 _logger.LogError(ex, "An error occurred while creating the working key.");
                 return 0;
             }
