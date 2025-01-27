@@ -8,7 +8,6 @@ namespace BncPayments.Services
     public class WorkKeyUpdateServices : IHostedService, IDisposable
     {
         private readonly IServiceProvider _serviceProvider;
-        private readonly DbEpaymentsContext _dbContext;
         private readonly ApiBncSettings _apiBncSettings;
         private readonly IEncryptionServices _encryptServices;
         private readonly ILogger<WorkKeyUpdateServices> _logger;
@@ -28,8 +27,8 @@ namespace BncPayments.Services
         public Task StartAsync(CancellationToken cancellationToken)
         {
             var now = DateTime.Now;
-            // testing var nextRunTime = now.AddMinutes(5); // Ejecutar en 5 minutos
-            var nextRunTime = new DateTime(now.Year, now.Month, now.Day, 0, 10, 0); // 00:10 de hoy
+            //var nextRunTime = now.AddMinutes(5); // Ejecutar en 5 minutos
+            DateTime nextRunTime = new DateTime(now.Year, now.Month, now.Day, 0, 10, 0); // 00:10 de hoy
 
             // Si ya pasó la hora de ejecución de hoy, programa para mañana
             if (now > nextRunTime)
@@ -38,8 +37,8 @@ namespace BncPayments.Services
             }
 
             var initialDelay = nextRunTime - now;
-            // testing _timer = new Timer(async _ => await UpdateWorkKey(), null, initialDelay, TimeSpan.FromMinutes(5)); // Intervalo de 5 minutos
-            _timer = new Timer(async _ => await UpdateWorkKey(), null, initialDelay, TimeSpan.FromDays(1)); // Intervalo de 1 día
+            //_timer = new Timer(async _ => await UpdateWorkKey(), null, initialDelay, TimeSpan.FromMinutes(5)); // Intervalo de 5 minutos
+            _timer = new Timer(async _ => await UpdateWorkKey(), null, initialDelay, TimeSpan.FromHours(23)); // Intervalo de 1 día
             _logger.LogInformation("WorkKeyUpdateServices started.");
             return Task.CompletedTask;
         }
