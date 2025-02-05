@@ -27,8 +27,9 @@ namespace BncPayments.Services
         public Task StartAsync(CancellationToken cancellationToken)
         {
             var now = DateTime.Now;
-            //var nextRunTime = now.AddMinutes(5); // Ejecutar en 5 minutos
-            DateTime nextRunTime = new DateTime(now.Year, now.Month, now.Day, 0, 10, 0); // 00:10 de hoy
+            _logger.LogInformation($"Hora actual del sistema: {now}");
+
+            DateTime nextRunTime = new DateTime(now.Year, now.Month, now.Day, 1, 10, 0); // 00:10 de hoy
 
             // Si ya pasó la hora de ejecución de hoy, programa para mañana
             if (now > nextRunTime)
@@ -37,9 +38,24 @@ namespace BncPayments.Services
             }
 
             var initialDelay = nextRunTime - now;
-            //_timer = new Timer(async _ => await UpdateWorkKey(), null, initialDelay, TimeSpan.FromMinutes(5)); // Intervalo de 5 minutos
-            _timer = new Timer(async _ => await UpdateWorkKey(), null, initialDelay, TimeSpan.FromHours(23)); // Intervalo de 1 día
+
+            // Asegúrate de que initialDelay no sea negativo
+            if (initialDelay < TimeSpan.Zero)
+            {
+                initialDelay = TimeSpan.Zero;
+            }
+
+            // Asegúrate de que initialDelay no sea demasiado pequeño
+            if (initialDelay < TimeSpan.FromSeconds(1))
+            {
+                initialDelay = TimeSpan.FromSeconds(1);
+            }
+
+            _logger.LogInformation($"Tiempo hasta la próxima ejecución: {initialDelay.TotalMilliseconds} ms");
+
+            _timer = new Timer(async _ => await UpdateWorkKey(), null, initialDelay, TimeSpan.FromDays(1));
             _logger.LogInformation("WorkKeyUpdateServices started.");
+
             return Task.CompletedTask;
         }
 
@@ -77,9 +93,7 @@ namespace BncPayments.Services
                                 {
                                     _logger.LogInformation("Creating working key BBDD.");
                                 }
-                            }
-                            _logger.LogInformation("Returning Ok response.");
-                            
+                            }                            
                         }
                         _logger.LogInformation("Returning Ok response.");
                     }
