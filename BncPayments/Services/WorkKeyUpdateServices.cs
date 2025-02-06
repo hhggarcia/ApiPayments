@@ -26,10 +26,10 @@ namespace BncPayments.Services
 
         public Task StartAsync(CancellationToken cancellationToken)
         {
-            var now = DateTime.Now;
+            var now = DateTime.UtcNow;
             _logger.LogInformation($"Hora actual del sistema: {now}");
 
-            DateTime nextRunTime = new DateTime(now.Year, now.Month, now.Day, 1, 10, 0); // 00:10 de hoy
+            DateTime nextRunTime = new DateTime(now.Year, now.Month, now.Day, 1, 10, 0, DateTimeKind.Utc); // 00:10 de hoy
 
             // Si ya pasó la hora de ejecución de hoy, programa para mañana
             if (now > nextRunTime)
@@ -46,9 +46,9 @@ namespace BncPayments.Services
             }
 
             // Asegúrate de que initialDelay no sea demasiado pequeño
-            if (initialDelay < TimeSpan.FromSeconds(1))
+            if (initialDelay < TimeSpan.FromSeconds(10))
             {
-                initialDelay = TimeSpan.FromSeconds(1);
+                initialDelay = TimeSpan.FromSeconds(10);
             }
 
             _logger.LogInformation($"Tiempo hasta la próxima ejecución: {initialDelay.TotalMilliseconds} ms");
