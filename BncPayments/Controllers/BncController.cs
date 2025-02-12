@@ -1,6 +1,7 @@
 ﻿using BncPayments.Models;
 using BncPayments.Services;
 using ClassLibrary.BncModels;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using Swashbuckle.AspNetCore.SwaggerGen;
@@ -12,6 +13,7 @@ namespace BncPayments.Controllers
 {
     [ApiController]
     [Route("[controller]")]
+    [Authorize]
     public class BncController : ControllerBase
     {
         private readonly ILogger<BncController> _logger;

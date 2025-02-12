@@ -1,9 +1,16 @@
+using BncPayments.Jobs;
 using BncPayments.Middleware;
 using BncPayments.Models;
 using BncPayments.Services;
 using ClassLibrary.BncModels;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Quartz.Impl;
+using Quartz.Spi;
+using Quartz;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,6 +36,30 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.Configure<ApiBncSettings>(builder.Configuration.GetSection("ApiBncSettings"));
 
+// Configurar JWT
+var jwtSettings = builder.Configuration.GetSection("Jwt");
+var key = Encoding.ASCII.GetBytes(jwtSettings["Key"]);
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = jwtSettings["Issuer"],
+        ValidAudience = jwtSettings["Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(key)
+    };
+});
+
+builder.Services.AddAuthorization();
 
 // SCOPED
 builder.Services.AddScoped<IBncServices, BncServices>();
@@ -44,8 +75,22 @@ builder.Services.AddTransient<IEncryptionServices, EncryptionServices>();
 
 // SINGLETON
 builder.Services.AddSingleton(resolver => resolver.GetRequiredService<IOptions<ApiBncSettings>>().Value);
+builder.Services.AddSingleton<WorkKeyUpdateJob>();
+builder.Services.AddSingleton<IJobFactory, SingletonJobFactory>();
+builder.Services.AddSingleton<ISchedulerFactory, StdSchedulerFactory>();
 
-builder.Services.AddHostedService<WorkKeyUpdateServices>();
+var jobSchedules = new[]
+{
+    new JobSchedule(
+        jobType: typeof(WorkKeyUpdateJob),
+        cronExpression: "0 10 1 * * ?" // Todos los días a la 1:10 AM
+    )
+};
+
+builder.Services.AddSingleton(jobSchedules);
+
+builder.Services.AddHostedService<QuartzHostedService>();
+//builder.Services.AddHostedService<WorkKeyUpdateServices>();
 
 builder.Services.AddMemoryCache();
 

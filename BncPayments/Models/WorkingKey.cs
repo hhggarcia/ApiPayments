@@ -9,7 +9,7 @@ public partial class WorkingKey
 
     public string Key { get; set; } = null!;
 
-    public DateTime FechaCreacion { get; set; } = DateTime.Now;
+    public DateTime FechaCreacion { get; set; }
 
     public DateTime? FechaExpiracion { get; set; }
 

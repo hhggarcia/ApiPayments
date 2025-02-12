@@ -3,17 +3,15 @@ using System.Collections.Generic;
 
 namespace BncPayments.Models;
 
-public partial class ResponseDb
+public partial class AppRquest
 {
     public long Id { get; set; }
 
-    public string StatusCode { get; set; } = null!;
-
-    public string ResponseBody { get; set; } = null!;
-
-    public DateTime Timestamp { get; set; }
+    public string IdApp { get; set; } = null!;
 
     public long IdRequest { get; set; }
+
+    public virtual Application IdAppNavigation { get; set; } = null!;
 
     public virtual RequestDb IdRequestNavigation { get; set; } = null!;
 }
