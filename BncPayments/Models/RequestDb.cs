@@ -12,11 +12,13 @@ public partial class RequestDb
 
     public string Url { get; set; } = null!;
 
-    public DateTime Timestamp { get; set; } = DateTime.Now;
+    public DateTime Timestamp { get; set; }
 
     public string RequestBody { get; set; } = null!;
 
     public long IdWorkingKey { get; set; }
+
+    public virtual ICollection<AppRquest> AppRquests { get; set; } = new List<AppRquest>();
 
     public virtual WorkingKey IdWorkingKeyNavigation { get; set; } = null!;
 
