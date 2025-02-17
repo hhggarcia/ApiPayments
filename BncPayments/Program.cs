@@ -11,6 +11,7 @@ using Quartz;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using BncPayments.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -65,6 +66,7 @@ builder.Services.AddAuthorization();
 builder.Services.AddScoped<IBncServices, BncServices>();
 builder.Services.AddScoped<IRequestServices, RequestServices>();
 builder.Services.AddScoped<IResponseServices, ResponseServices>();
+builder.Services.AddScoped<IAppRepository, AppRepository>();
 builder.Services.AddScoped<WorkingKeyServices>();
 
 

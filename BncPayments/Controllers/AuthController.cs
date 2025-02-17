@@ -1,8 +1,12 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using BncPayments.Models;
+using BncPayments.Repositories;
+using BncPayments.ViewModels;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
+using System.Runtime.InteropServices;
 using System.Security.Claims;
 using System.Text;
 
@@ -13,23 +17,48 @@ namespace BncPayments.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IConfiguration _config;
+        private readonly IAppRepository _appRepository;
 
-        public AuthController(IConfiguration config)
+        public AuthController(IConfiguration config,
+            IAppRepository appRepository)
         {
             _config = config;
+            _appRepository = appRepository;
         }
 
         [HttpPost("login")]
-        public IActionResult Login([FromBody] LoginModel login)
+        public async Task<IActionResult> Login([FromBody] LoginVM login)
         {
-            // Aquí deberías validar las credenciales del usuario (por ejemplo, contra una base de datos).
-            if (login.Username == "admin" && login.Password == "password")
+            var result = await _appRepository.ExistsApp(login);
+            if (result != null)
             {
                 var token = GenerateJwtToken(login.Username);
                 return Ok(new { Token = token });
             }
 
-            return Unauthorized();
+            return Unauthorized("No existe el usuario!");
+        }
+        
+        [HttpPost("Register")]
+        public async Task<IActionResult> Register([FromBody] AppVM model)
+        {
+            try
+            {
+                model.Id = Guid.NewGuid();
+
+                var createModel = await _appRepository.Create(new Application()
+                {
+                    IdApplication = model.Id.ToString(),
+                    Name = model.Nombre,
+                    Password = model.Clave // encriptar
+                });
+
+                return Ok(createModel);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         private string GenerateJwtToken(string username)
@@ -53,11 +82,5 @@ namespace BncPayments.Controllers
             var token = tokenHandler.CreateToken(tokenDescriptor);
             return tokenHandler.WriteToken(token);
         }
-    }
-
-    public class LoginModel
-    {
-        public string Username { get; set; }
-        public string Password { get; set; }
     }
 }
