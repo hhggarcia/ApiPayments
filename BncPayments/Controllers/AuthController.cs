@@ -26,6 +26,13 @@ namespace BncPayments.Controllers
             _appRepository = appRepository;
         }
 
+        [HttpGet("Users")]
+        public async Task<IActionResult> Users()
+        {
+            var result = await _appRepository.GetApps();
+            return Ok(result);
+        }
+
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginVM login)
         {
